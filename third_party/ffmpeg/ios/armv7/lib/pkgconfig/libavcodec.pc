@@ -1,0 +1,14 @@
+prefix=/Users/a8000/ffmovie/third_party/ffmpeg/ios/armv7
+exec_prefix=${prefix}
+libdir=/Users/a8000/ffmovie/third_party/ffmpeg/ios/armv7/lib
+includedir=/Users/a8000/ffmovie/third_party/ffmpeg/ios/armv7/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 58.35.100
+Requires: libavutil >= 56.22.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavcodec -pthread -lm -L/usr/local/Cellar/x264/r3060/lib -lx264
+Libs.private: 
+Cflags: -I${includedir}

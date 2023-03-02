@@ -1,0 +1,11 @@
+prefix=/Users/zhoudali/Desktop/开发/ffmpeg/dali-com/openssl/out
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: OpenSSL-libssl
+Description: Secure Sockets Layer and cryptography libraries
+Version: 3.0.0-beta3-dev
+Requires.private: libcrypto
+Libs: -L${libdir} -lssl
+Cflags: -I${includedir}

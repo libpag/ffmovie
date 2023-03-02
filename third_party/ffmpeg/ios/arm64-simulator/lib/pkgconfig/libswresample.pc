@@ -1,0 +1,14 @@
+prefix=/Users/a8000/ffmovie/third_party/ffmpeg/ios/arm64-simulator
+exec_prefix=${prefix}
+libdir=/Users/a8000/ffmovie/third_party/ffmpeg/ios/arm64-simulator/lib
+includedir=/Users/a8000/ffmovie/third_party/ffmpeg/ios/arm64-simulator/include
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 3.3.100
+Requires: libavutil >= 56.22.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lswresample -lm
+Libs.private: 
+Cflags: -I${includedir}

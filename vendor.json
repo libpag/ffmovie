@@ -1,0 +1,21 @@
+{
+  "source": "..",
+  "out": "out",
+  "vendors": [
+    {
+      "name": "ffmovie",
+      "cmake": {
+        "targets": [
+          "ffmovie"
+        ],
+        "platforms": [
+          "ios",
+          "android",
+          "mac",
+          "win",
+          "linux"
+        ]
+      }
+    }
+  ]
+}

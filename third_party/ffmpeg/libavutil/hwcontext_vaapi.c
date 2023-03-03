@@ -27,6 +27,7 @@
 
 #if CONFIG_LIBDRM
 #   include <va/va_drmcommon.h>
+#   include <xf86drm.h>
 #   include <drm_fourcc.h>
 #   ifndef DRM_FORMAT_MOD_INVALID
 #       define DRM_FORMAT_MOD_INVALID ((1ULL << 56) - 1)
@@ -115,6 +116,9 @@ static const VAAPIFormatDescriptor vaapi_format_map[] = {
 #endif
     MAP(UYVY, YUV422,  UYVY422, 0),
     MAP(YUY2, YUV422,  YUYV422, 0),
+#ifdef VA_FOURCC_Y210
+    MAP(Y210, YUV422_10,  Y210, 0),
+#endif
     MAP(411P, YUV411,  YUV411P, 0),
     MAP(422V, YUV422,  YUV440P, 0),
     MAP(444P, YUV444,  YUV444P, 0),
@@ -132,6 +136,9 @@ static const VAAPIFormatDescriptor vaapi_format_map[] = {
 #endif
     MAP(ARGB, RGB32,   ARGB, 0),
     MAP(XRGB, RGB32,   0RGB, 0),
+#ifdef VA_FOURCC_X2R10G10B10
+    MAP(X2R10G10B10, RGB32_10, X2RGB10, 0),
+#endif
 };
 #undef MAP
 
@@ -261,14 +268,24 @@ static int vaapi_frames_get_constraints(AVHWDeviceContext *hwdev,
             }
 
             for (i = j = 0; i < attr_count; i++) {
+                int k;
+
                 if (attr_list[i].type != VASurfaceAttribPixelFormat)
                     continue;
                 fourcc = attr_list[i].value.value.i;
                 pix_fmt = vaapi_pix_fmt_from_fourcc(fourcc);
-                if (pix_fmt != AV_PIX_FMT_NONE)
+
+                if (pix_fmt == AV_PIX_FMT_NONE)
+                    continue;
+
+                for (k = 0; k < j; k++) {
+                    if (constraints->valid_sw_formats[k] == pix_fmt)
+                        break;
+                }
+
+                if (k == j)
                     constraints->valid_sw_formats[j++] = pix_fmt;
             }
-            av_assert0(j == pix_fmt_count);
             constraints->valid_sw_formats[j] = AV_PIX_FMT_NONE;
         }
     } else {
@@ -280,9 +297,19 @@ static int vaapi_frames_get_constraints(AVHWDeviceContext *hwdev,
             err = AVERROR(ENOMEM);
             goto fail;
         }
-        for (i = 0; i < ctx->nb_formats; i++)
-            constraints->valid_sw_formats[i] = ctx->formats[i].pix_fmt;
-        constraints->valid_sw_formats[i] = AV_PIX_FMT_NONE;
+        for (i = j = 0; i < ctx->nb_formats; i++) {
+            int k;
+
+            for (k = 0; k < j; k++) {
+                if (constraints->valid_sw_formats[k] == ctx->formats[i].pix_fmt)
+                    break;
+            }
+
+            if (k == j)
+                constraints->valid_sw_formats[j++] = ctx->formats[i].pix_fmt;
+        }
+
+        constraints->valid_sw_formats[j] = AV_PIX_FMT_NONE;
     }
 
     constraints->valid_hw_formats = av_malloc_array(2, sizeof(pix_fmt));
@@ -437,7 +464,7 @@ static void vaapi_buffer_free(void *opaque, uint8_t *data)
     }
 }
 
-static AVBufferRef *vaapi_pool_alloc(void *opaque, int size)
+static AVBufferRef *vaapi_pool_alloc(void *opaque, buffer_size_t size)
 {
     AVHWFramesContext     *hwfc = opaque;
     VAAPIFramesContext     *ctx = hwfc->internal->priv;
@@ -1469,6 +1496,8 @@ static int vaapi_device_create(AVHWDeviceContext *ctx, const char *device,
 {
     VAAPIDevicePriv *priv;
     VADisplay display = NULL;
+    const AVDictionaryEntry *ent;
+    int try_drm, try_x11, try_all;
 
     priv = av_mallocz(sizeof(*priv));
     if (!priv)
@@ -1479,8 +1508,95 @@ static int vaapi_device_create(AVHWDeviceContext *ctx, const char *device,
     ctx->user_opaque = priv;
     ctx->free        = vaapi_device_free;
 
+    ent = av_dict_get(opts, "connection_type", NULL, 0);
+    if (ent) {
+        try_all = try_drm = try_x11 = 0;
+        if (!strcmp(ent->value, "drm")) {
+            try_drm = 1;
+        } else if (!strcmp(ent->value, "x11")) {
+            try_x11 = 1;
+        } else {
+            av_log(ctx, AV_LOG_ERROR, "Invalid connection type %s.\n",
+                   ent->value);
+            return AVERROR(EINVAL);
+        }
+    } else {
+        try_all = 1;
+        try_drm = HAVE_VAAPI_DRM;
+        try_x11 = HAVE_VAAPI_X11;
+    }
+
+#if HAVE_VAAPI_DRM
+    while (!display && try_drm) {
+        // If the device is specified, try to open it as a DRM device node.
+        // If not, look for a usable render node, possibly restricted to those
+        // using a specified kernel driver.
+        int loglevel = try_all ? AV_LOG_VERBOSE : AV_LOG_ERROR;
+        if (device) {
+            priv->drm_fd = open(device, O_RDWR);
+            if (priv->drm_fd < 0) {
+                av_log(ctx, loglevel, "Failed to open %s as "
+                       "DRM device node.\n", device);
+                break;
+            }
+        } else {
+            char path[64];
+            int n, max_devices = 8;
+#if CONFIG_LIBDRM
+            const AVDictionaryEntry *kernel_driver;
+            kernel_driver = av_dict_get(opts, "kernel_driver", NULL, 0);
+#endif
+            for (n = 0; n < max_devices; n++) {
+                snprintf(path, sizeof(path),
+                         "/dev/dri/renderD%d", 128 + n);
+                priv->drm_fd = open(path, O_RDWR);
+                if (priv->drm_fd < 0) {
+                    av_log(ctx, AV_LOG_VERBOSE, "Cannot open "
+                           "DRM render node for device %d.\n", n);
+                    break;
+                }
+#if CONFIG_LIBDRM
+                if (kernel_driver) {
+                    drmVersion *info;
+                    info = drmGetVersion(priv->drm_fd);
+                    if (strcmp(kernel_driver->value, info->name)) {
+                        av_log(ctx, AV_LOG_VERBOSE, "Ignoring device %d "
+                               "with non-matching kernel driver (%s).\n",
+                               n, info->name);
+                        drmFreeVersion(info);
+                        close(priv->drm_fd);
+                        priv->drm_fd = -1;
+                        continue;
+                    }
+                    av_log(ctx, AV_LOG_VERBOSE, "Trying to use "
+                           "DRM render node for device %d, "
+                           "with matching kernel driver (%s).\n",
+                           n, info->name);
+                    drmFreeVersion(info);
+                } else
+#endif
+                {
+                    av_log(ctx, AV_LOG_VERBOSE, "Trying to use "
+                           "DRM render node for device %d.\n", n);
+                }
+                break;
+            }
+            if (n >= max_devices)
+                break;
+        }
+
+        display = vaGetDisplayDRM(priv->drm_fd);
+        if (!display) {
+            av_log(ctx, AV_LOG_VERBOSE, "Cannot open a VA display "
+                   "from DRM device %s.\n", device);
+            return AVERROR_EXTERNAL;
+        }
+        break;
+    }
+#endif
+
 #if HAVE_VAAPI_X11
-    if (!display && !(device && device[0] == '/')) {
+    if (!display && try_x11) {
         // Try to open the device as an X11 display.
         priv->x11_display = XOpenDisplay(device);
         if (!priv->x11_display) {
@@ -1500,47 +1616,46 @@ static int vaapi_device_create(AVHWDeviceContext *ctx, const char *device,
     }
 #endif
 
-#if HAVE_VAAPI_DRM
     if (!display) {
-        // Try to open the device as a DRM path.
-        // Default to using the first render node if the user did not
-        // supply a path.
-        const char *path = device ? device : "/dev/dri/renderD128";
-        priv->drm_fd = open(path, O_RDWR);
-        if (priv->drm_fd < 0) {
-            av_log(ctx, AV_LOG_VERBOSE, "Cannot open DRM device %s.\n",
-                   path);
-        } else {
-            display = vaGetDisplayDRM(priv->drm_fd);
-            if (!display) {
-                av_log(ctx, AV_LOG_ERROR, "Cannot open a VA display "
-                       "from DRM device %s.\n", path);
-                return AVERROR_UNKNOWN;
-            }
-
-            av_log(ctx, AV_LOG_VERBOSE, "Opened VA display via "
-                   "DRM device %s.\n", path);
-        }
-    }
-#endif
-
-    if (!display) {
-        av_log(ctx, AV_LOG_ERROR, "No VA display found for "
-               "device: %s.\n", device ? device : "");
+        if (device)
+            av_log(ctx, AV_LOG_ERROR, "No VA display found for "
+                   "device %s.\n", device);
+        else
+            av_log(ctx, AV_LOG_ERROR, "No VA display found for "
+                   "any default device.\n");
         return AVERROR(EINVAL);
+    }
+
+    ent = av_dict_get(opts, "driver", NULL, 0);
+    if (ent) {
+#if VA_CHECK_VERSION(0, 38, 0)
+        VAStatus vas;
+        vas = vaSetDriverName(display, ent->value);
+        if (vas != VA_STATUS_SUCCESS) {
+            av_log(ctx, AV_LOG_ERROR, "Failed to set driver name to "
+                   "%s: %d (%s).\n", ent->value, vas, vaErrorStr(vas));
+            vaTerminate(display);
+            return AVERROR_EXTERNAL;
+        }
+#else
+        av_log(ctx, AV_LOG_WARNING, "Driver name setting is not "
+               "supported with this VAAPI version.\n");
+#endif
     }
 
     return vaapi_device_connect(ctx, display);
 }
 
 static int vaapi_device_derive(AVHWDeviceContext *ctx,
-                               AVHWDeviceContext *src_ctx, int flags)
+                               AVHWDeviceContext *src_ctx,
+                               AVDictionary *opts, int flags)
 {
 #if HAVE_VAAPI_DRM
     if (src_ctx->type == AV_HWDEVICE_TYPE_DRM) {
         AVDRMDeviceContext *src_hwctx = src_ctx->hwctx;
         VADisplay *display;
         VAAPIDevicePriv *priv;
+        int fd;
 
         if (src_hwctx->fd < 0) {
             av_log(ctx, AV_LOG_ERROR, "DRM instance requires an associated "
@@ -1548,17 +1663,65 @@ static int vaapi_device_derive(AVHWDeviceContext *ctx,
             return AVERROR(EINVAL);
         }
 
-        priv = av_mallocz(sizeof(*priv));
-        if (!priv)
-            return AVERROR(ENOMEM);
+#if CONFIG_LIBDRM
+        {
+            int node_type = drmGetNodeTypeFromFd(src_hwctx->fd);
+            char *render_node;
+            if (node_type < 0) {
+                av_log(ctx, AV_LOG_ERROR, "DRM instance fd does not appear "
+                       "to refer to a DRM device.\n");
+                return AVERROR(EINVAL);
+            }
+            if (node_type == DRM_NODE_RENDER) {
+                fd = src_hwctx->fd;
+            } else {
+                render_node = drmGetRenderDeviceNameFromFd(src_hwctx->fd);
+                if (!render_node) {
+                    av_log(ctx, AV_LOG_VERBOSE, "Using non-render node "
+                           "because the device does not have an "
+                           "associated render node.\n");
+                    fd = src_hwctx->fd;
+                } else {
+                    fd = open(render_node, O_RDWR);
+                    if (fd < 0) {
+                        av_log(ctx, AV_LOG_VERBOSE, "Using non-render node "
+                               "because the associated render node "
+                               "could not be opened.\n");
+                        fd = src_hwctx->fd;
+                    } else {
+                        av_log(ctx, AV_LOG_VERBOSE, "Using render node %s "
+                               "in place of non-render DRM device.\n",
+                               render_node);
+                    }
+                    free(render_node);
+                }
+            }
+        }
+#else
+        fd = src_hwctx->fd;
+#endif
 
-        // Inherits the fd from the source context, which will close it.
-        priv->drm_fd = -1;
+        priv = av_mallocz(sizeof(*priv));
+        if (!priv) {
+            if (fd != src_hwctx->fd) {
+                // The fd was opened in this function.
+                close(fd);
+            }
+            return AVERROR(ENOMEM);
+        }
+
+        if (fd == src_hwctx->fd) {
+            // The fd is inherited from the source context and we are holding
+            // a reference to that, we don't want to close it from here.
+            priv->drm_fd = -1;
+        } else {
+            priv->drm_fd = fd;
+        }
 
         ctx->user_opaque = priv;
         ctx->free        = &vaapi_device_free;
 
-        display = vaGetDisplayDRM(src_hwctx->fd);
+        display = vaGetDisplayDRM(fd);
         if (!display) {
             av_log(ctx, AV_LOG_ERROR, "Failed to open a VA display from "
                    "DRM device.\n");

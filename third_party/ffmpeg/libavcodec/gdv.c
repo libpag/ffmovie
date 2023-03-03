@@ -308,7 +308,7 @@ static int decompress_5(AVCodecContext *avctx, unsigned skip)
             int len;
             int b = bytestream2_get_byte(gb);
             if (b == 0) {
-                break;
+                return 0;
             }
             if (b != 0xFF) {
                 len = b;
@@ -323,6 +323,8 @@ static int decompress_5(AVCodecContext *avctx, unsigned skip)
             lz_copy(pb, g2, off, len);
         }
     }
+    if (bytestream2_get_bytes_left_p(pb) > 0)
+        return AVERROR_INVALIDDATA;
     return 0;
 }
 
@@ -446,6 +448,9 @@ static int decompress_68(AVCodecContext *avctx, unsigned skip, unsigned use8)
         }
     }
 
+    if (bytestream2_get_bytes_left_p(pb) > 0)
+        return AVERROR_INVALIDDATA;
+
     return 0;
 }
 
@@ -456,7 +461,8 @@ static int gdv_decode_frame(AVCodecContext *avctx, void *data,
     GetByteContext *gb = &gdv->gb;
     PutByteContext *pb = &gdv->pb;
     AVFrame *frame = data;
-    int ret, i, pal_size;
+    int ret, i;
+    buffer_size_t pal_size;
     const uint8_t *pal = av_packet_get_side_data(avpkt, AV_PKT_DATA_PALETTE, &pal_size);
     int compression;
     unsigned flags;
@@ -517,12 +523,10 @@ static int gdv_decode_frame(AVCodecContext *avctx, void *data,
 
     if (!gdv->scale_v && !gdv->scale_h) {
         int sidx = PREAMBLE_SIZE, didx = 0;
-        int y, x;
+        int y;
 
         for (y = 0; y < avctx->height; y++) {
-            for (x = 0; x < avctx->width; x++) {
-                dst[x+didx] = gdv->frame[x+sidx];
-            }
+            memcpy(dst + didx, gdv->frame + sidx, avctx->width);
             sidx += avctx->width;
             didx += frame->linesize[0];
         }
@@ -548,7 +552,7 @@ static int gdv_decode_frame(AVCodecContext *avctx, void *data,
 
     *got_frame = 1;
 
-    return ret < 0 ? ret : avpkt->size;
+    return avpkt->size;
 }
 
 static av_cold int gdv_decode_close(AVCodecContext *avctx)

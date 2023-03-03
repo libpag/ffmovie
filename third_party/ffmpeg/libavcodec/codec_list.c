@@ -1,16 +1,3 @@
 static const AVCodec * const codec_list[] = {
-    &ff_h263_encoder,
-    &ff_mpeg4_encoder,
-    &ff_aac_encoder,
-    &ff_libx264_encoder,
-    &ff_h263_decoder,
-    &ff_h264_decoder,
-    &ff_hevc_decoder,
-    &ff_mpeg4_decoder,
-    &ff_aac_decoder,
     &ff_mp3_decoder,
-    &ff_pcm_f32be_decoder,
-    &ff_pcm_f32le_decoder,
-    &ff_pcm_s16be_decoder,
-    &ff_pcm_s16le_decoder,
     NULL };

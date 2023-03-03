@@ -33,7 +33,7 @@
 /** 256 is arbitrary, but should be big enough for any reasonable file. */
 #define RPL_LINE_LENGTH 256
 
-static int rpl_probe(AVProbeData *p)
+static int rpl_probe(const AVProbeData *p)
 {
     if (memcmp(p->buf, RPL_SIGNATURE, RPL_SIGNATURE_SIZE))
         return 0;
@@ -103,7 +103,7 @@ static AVRational read_fps(const char* line, int* error)
         // Truncate any numerator too large to fit into an int64_t
         if (num > (INT64_MAX - 9) / 10 || den > INT64_MAX / 10)
             break;
-        num  = 10 * num + *line - '0';
+        num  = 10 * num + (*line - '0');
         den *= 10;
     }
     if (!num)
@@ -124,7 +124,7 @@ static int rpl_read_header(AVFormatContext *s)
 
     uint32_t i;
 
-    int32_t audio_format, chunk_catalog_offset, number_of_chunks;
+    int32_t video_format, audio_format, chunk_catalog_offset, number_of_chunks;
     AVRational fps;
 
     char line[RPL_LINE_LENGTH];
@@ -144,38 +144,46 @@ static int rpl_read_header(AVFormatContext *s)
     av_dict_set(&s->metadata, "author"   , line, 0);
 
     // video headers
-    vst = avformat_new_stream(s, NULL);
-    if (!vst)
-        return AVERROR(ENOMEM);
-    vst->codecpar->codec_type      = AVMEDIA_TYPE_VIDEO;
-    vst->codecpar->codec_tag       = read_line_and_int(pb, &error);  // video format
-    vst->codecpar->width           = read_line_and_int(pb, &error);  // video width
-    vst->codecpar->height          = read_line_and_int(pb, &error);  // video height
-    vst->codecpar->bits_per_coded_sample = read_line_and_int(pb, &error);  // video bits per sample
+    video_format = read_line_and_int(pb, &error);
+    if (video_format) {
+        vst = avformat_new_stream(s, NULL);
+        if (!vst)
+            return AVERROR(ENOMEM);
+        vst->codecpar->codec_type      = AVMEDIA_TYPE_VIDEO;
+        vst->codecpar->codec_tag       = video_format;
+        vst->codecpar->width           = read_line_and_int(pb, &error);  // video width
+        vst->codecpar->height          = read_line_and_int(pb, &error);  // video height
+        vst->codecpar->bits_per_coded_sample = read_line_and_int(pb, &error);  // video bits per sample
+
+        // Figure out the video codec
+        switch (vst->codecpar->codec_tag) {
+#if 0
+            case 122:
+                vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE122;
+                break;
+#endif
+            case 124:
+                vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE124;
+                // The header is wrong here, at least sometimes
+                vst->codecpar->bits_per_coded_sample = 16;
+                break;
+            case 130:
+                vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE130;
+                break;
+            default:
+                avpriv_report_missing_feature(s, "Video format %s",
+                                              av_fourcc2str(vst->codecpar->codec_tag));
+                vst->codecpar->codec_id = AV_CODEC_ID_NONE;
+        }
+    } else {
+        for (i = 0; i < 3; i++)
+            error |= read_line(pb, line, sizeof(line));
+    }
+
     error |= read_line(pb, line, sizeof(line));                   // video frames per second
     fps = read_fps(line, &error);
-    avpriv_set_pts_info(vst, 32, fps.den, fps.num);
-
-    // Figure out the video codec
-    switch (vst->codecpar->codec_tag) {
-#if 0
-        case 122:
-            vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE122;
-            break;
-#endif
-        case 124:
-            vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE124;
-            // The header is wrong here, at least sometimes
-            vst->codecpar->bits_per_coded_sample = 16;
-            break;
-        case 130:
-            vst->codecpar->codec_id = AV_CODEC_ID_ESCAPE130;
-            break;
-        default:
-            avpriv_report_missing_feature(s, "Video format %s",
-                                          av_fourcc2str(vst->codecpar->codec_tag));
-            vst->codecpar->codec_id = AV_CODEC_ID_NONE;
-    }
+    if (vst)
+        avpriv_set_pts_info(vst, 32, fps.den, fps.num);
 
     // Audio headers
 
@@ -199,8 +207,10 @@ static int rpl_read_header(AVFormatContext *s)
             ast->codecpar->bits_per_coded_sample = 4;
 
         ast->codecpar->bit_rate = ast->codecpar->sample_rate *
-                                  ast->codecpar->bits_per_coded_sample *
-                                  ast->codecpar->channels;
+                                  (int64_t)ast->codecpar->channels;
+        if (ast->codecpar->bit_rate > INT64_MAX / ast->codecpar->bits_per_coded_sample)
+            return AVERROR_INVALIDDATA;
+        ast->codecpar->bit_rate *= ast->codecpar->bits_per_coded_sample;
 
         ast->codecpar->codec_id = AV_CODEC_ID_NONE;
         switch (audio_format) {
@@ -210,10 +220,10 @@ static int rpl_read_header(AVFormatContext *s)
                     ast->codecpar->codec_id = AV_CODEC_ID_PCM_S16LE;
                     break;
                 } else if (ast->codecpar->bits_per_coded_sample == 8) {
-                    if(strstr(audio_type, "unsigned") != NULL) {
+                    if(av_stristr(audio_type, "unsigned") != NULL) {
                         ast->codecpar->codec_id = AV_CODEC_ID_PCM_U8;
                         break;
-                    } else if(strstr(audio_type, "linear") != NULL) {
+                    } else if(av_stristr(audio_type, "linear") != NULL) {
                         ast->codecpar->codec_id = AV_CODEC_ID_PCM_S8;
                         break;
                     } else {
@@ -245,8 +255,11 @@ static int rpl_read_header(AVFormatContext *s)
             error |= read_line(pb, line, sizeof(line));
     }
 
+    if (s->nb_streams == 0)
+        return AVERROR_INVALIDDATA;
+
     rpl->frames_per_chunk = read_line_and_int(pb, &error);  // video frames per chunk
-    if (rpl->frames_per_chunk > 1 && vst->codecpar->codec_tag != 124)
+    if (vst && rpl->frames_per_chunk > 1 && vst->codecpar->codec_tag != 124)
         av_log(s, AV_LOG_WARNING,
                "Don't know how to split frames for video format %s. "
                "Video stream will be broken!\n", av_fourcc2str(vst->codecpar->codec_tag));
@@ -261,7 +274,10 @@ static int rpl_read_header(AVFormatContext *s)
         read_line_and_int(pb, &error);           //   (file index)
     error |= read_line(pb, line, sizeof(line));  // offset to "helpful" sprite
     error |= read_line(pb, line, sizeof(line));  // size of "helpful" sprite
-    error |= read_line(pb, line, sizeof(line));  // offset to key frame list
+    if (vst) {
+        error |= read_line(pb, line, sizeof(line));  // offset to key frame list
+        vst->duration = number_of_chunks * rpl->frames_per_chunk;
+    }
 
     // Read the index
     avio_seek(pb, chunk_catalog_offset, SEEK_SET);
@@ -274,8 +290,9 @@ static int rpl_read_header(AVFormatContext *s)
             error = -1;
             continue;
         }
-        av_add_index_entry(vst, offset, i * rpl->frames_per_chunk,
-                           video_size, rpl->frames_per_chunk, 0);
+        if (vst)
+            av_add_index_entry(vst, offset, i * rpl->frames_per_chunk,
+                               video_size, rpl->frames_per_chunk, 0);
         if (ast)
             av_add_index_entry(ast, offset + video_size, total_audio_size,
                                audio_size, audio_size * 8, 0);
@@ -319,14 +336,13 @@ static int rpl_read_packet(AVFormatContext *s, AVPacket *pkt)
 
         avio_skip(pb, 4); /* flags */
         frame_size = avio_rl32(pb);
-        if (avio_seek(pb, -8, SEEK_CUR) < 0)
+        if (avio_feof(pb) || avio_seek(pb, -8, SEEK_CUR) < 0 || !frame_size)
             return AVERROR(EIO);
 
         ret = av_get_packet(pb, pkt, frame_size);
         if (ret < 0)
             return ret;
         if (ret != frame_size) {
-            av_packet_unref(pkt);
             return AVERROR(EIO);
         }
         pkt->duration = 1;
@@ -343,7 +359,6 @@ static int rpl_read_packet(AVFormatContext *s, AVPacket *pkt)
         if (ret < 0)
             return ret;
         if (ret != index_entry->size) {
-            av_packet_unref(pkt);
             return AVERROR(EIO);
         }
 

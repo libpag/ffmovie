@@ -70,9 +70,30 @@ static IDeckLinkIterator *decklink_create_iterator(AVFormatContext *avctx)
 #else
     iter = CreateDeckLinkIteratorInstance();
 #endif
-    if (!iter)
+    if (!iter) {
         av_log(avctx, AV_LOG_ERROR, "Could not create DeckLink iterator. "
                                     "Make sure you have DeckLink drivers " BLACKMAGIC_DECKLINK_API_VERSION_STRING " or newer installed.\n");
+    } else {
+        IDeckLinkAPIInformation *api;
+        int64_t version;
+#ifdef _WIN32
+        if (CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
+                             IID_IDeckLinkAPIInformation, (void**) &api) != S_OK) {
+            api = NULL;
+        }
+#else
+        api = CreateDeckLinkAPIInformationInstance();
+#endif
+        if (api && api->GetInt(BMDDeckLinkAPIVersion, &version) == S_OK) {
+            if (version < BLACKMAGIC_DECKLINK_API_VERSION)
+                av_log(avctx, AV_LOG_WARNING, "Installed DeckLink drivers are too old and may be incompatible with the SDK this module was built against. "
+                                              "Make sure you have DeckLink drivers " BLACKMAGIC_DECKLINK_API_VERSION_STRING " or newer installed.\n");
+        } else {
+            av_log(avctx, AV_LOG_ERROR, "Failed to check installed DeckLink API version.\n");
+        }
+        if (api)
+            api->Release();
+    }
 
     return iter;
 }
@@ -81,9 +102,9 @@ static int decklink_get_attr_string(IDeckLink *dl, BMDDeckLinkAttributeID cfg_id
 {
     DECKLINK_STR tmp;
     HRESULT hr;
-    IDeckLinkAttributes *attr;
+    IDeckLinkProfileAttributes *attr;
     *s = NULL;
-    if (dl->QueryInterface(IID_IDeckLinkAttributes, (void **)&attr) != S_OK)
+    if (dl->QueryInterface(IID_IDeckLinkProfileAttributes, (void **)&attr) != S_OK)
         return AVERROR_EXTERNAL;
     hr = attr->GetString(cfg_id, &tmp);
     attr->Release();
@@ -149,11 +170,28 @@ int ff_decklink_set_configs(AVFormatContext *avctx,
     if (ctx->duplex_mode) {
         DECKLINK_BOOL duplex_supported = false;
 
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b000000
+        IDeckLinkProfileManager *manager = NULL;
+        if (ctx->dl->QueryInterface(IID_IDeckLinkProfileManager, (void **)&manager) == S_OK)
+            duplex_supported = true;
+#else
         if (ctx->attr->GetFlag(BMDDeckLinkSupportsDuplexModeConfiguration, &duplex_supported) != S_OK)
             duplex_supported = false;
+#endif
 
         if (duplex_supported) {
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b000000
+            IDeckLinkProfile *profile = NULL;
+            BMDProfileID bmd_profile_id = ctx->duplex_mode == 2 ? bmdProfileOneSubDeviceFullDuplex : bmdProfileTwoSubDevicesHalfDuplex;
+            res = manager->GetProfile(bmd_profile_id, &profile);
+            if (res == S_OK) {
+                res = profile->SetActive();
+                profile->Release();
+            }
+            manager->Release();
+#else
             res = ctx->cfg->SetInt(bmdDeckLinkConfigDuplexMode, ctx->duplex_mode == 2 ? bmdDuplexModeFull : bmdDuplexModeHalf);
+#endif
             if (res != S_OK)
                 av_log(avctx, AV_LOG_WARNING, "Setting duplex mode failed.\n");
             else
@@ -171,6 +209,11 @@ int ff_decklink_set_configs(AVFormatContext *avctx,
         if (ret < 0)
             return ret;
     }
+    if (direction == DIRECTION_OUT && cctx->timing_offset != INT_MIN) {
+        res = ctx->cfg->SetInt(bmdDeckLinkConfigReferenceInputTimingOffset, cctx->timing_offset);
+        if (res != S_OK)
+            av_log(avctx, AV_LOG_WARNING, "Setting timing offset failed.\n");
+    }
     return 0;
 }
 
@@ -178,18 +221,22 @@ int ff_decklink_set_format(AVFormatContext *avctx,
                                int width, int height,
                                int tb_num, int tb_den,
                                enum AVFieldOrder field_order,
-                               decklink_direction_t direction, int num)
+                               decklink_direction_t direction)
 {
     struct decklink_cctx *cctx = (struct decklink_cctx *)avctx->priv_data;
     struct decklink_ctx *ctx = (struct decklink_ctx *)cctx->ctx;
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b000000
+    DECKLINK_BOOL support;
+#else
     BMDDisplayModeSupport support;
+#endif
     IDeckLinkDisplayModeIterator *itermode;
     IDeckLinkDisplayMode *mode;
     int i = 1;
     HRESULT res;
 
-    av_log(avctx, AV_LOG_DEBUG, "Trying to find mode for frame size %dx%d, frame timing %d/%d, field order %d, direction %d, mode number %d, format code %s\n",
-        width, height, tb_num, tb_den, field_order, direction, num, (cctx->format_code) ? cctx->format_code : "(unset)");
+    av_log(avctx, AV_LOG_DEBUG, "Trying to find mode for frame size %dx%d, frame timing %d/%d, field order %d, direction %d, format code %s\n",
+        width, height, tb_num, tb_den, field_order, direction, cctx->format_code ? cctx->format_code : "(unset)");
 
     if (direction == DIRECTION_IN) {
         res = ctx->dli->GetDisplayModeIterator (&itermode);
@@ -222,7 +269,6 @@ int ff_decklink_set_format(AVFormatContext *avctx,
              bmd_height == height &&
              !av_cmp_q(mode_tb, target_tb) &&
              field_order_eq(field_order, bmd_field_dominance))
-             || i == num
              || target_mode == bmd_mode) {
             ctx->bmd_mode   = bmd_mode;
             ctx->bmd_width  = bmd_width;
@@ -243,15 +289,49 @@ int ff_decklink_set_format(AVFormatContext *avctx,
 
     if (ctx->bmd_mode == bmdModeUnknown)
         return -1;
+
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b050000
     if (direction == DIRECTION_IN) {
-        if (ctx->dli->DoesSupportVideoMode(ctx->bmd_mode, (BMDPixelFormat) cctx->raw_format,
+        BMDDisplayMode actualMode = ctx->bmd_mode;
+        if (ctx->dli->DoesSupportVideoMode(ctx->video_input, ctx->bmd_mode, ctx->raw_format,
+                                           bmdNoVideoInputConversion, bmdSupportedVideoModeDefault,
+                                           &actualMode, &support) != S_OK || !support || ctx->bmd_mode != actualMode)
+            return -1;
+    } else {
+        BMDDisplayMode actualMode = ctx->bmd_mode;
+        if (ctx->dlo->DoesSupportVideoMode(bmdVideoConnectionUnspecified, ctx->bmd_mode, ctx->raw_format,
+                                           bmdNoVideoOutputConversion, bmdSupportedVideoModeDefault,
+                                           &actualMode, &support) != S_OK || !support || ctx->bmd_mode != actualMode)
+            return -1;
+    }
+    return 0;
+#elif BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b000000
+    if (direction == DIRECTION_IN) {
+        if (ctx->dli->DoesSupportVideoMode(ctx->video_input, ctx->bmd_mode, ctx->raw_format,
+                                           bmdSupportedVideoModeDefault,
+                                           &support) != S_OK)
+            return -1;
+    } else {
+        BMDDisplayMode actualMode = ctx->bmd_mode;
+        if (ctx->dlo->DoesSupportVideoMode(bmdVideoConnectionUnspecified, ctx->bmd_mode, ctx->raw_format,
+                                           bmdSupportedVideoModeDefault,
+                                           &actualMode, &support) != S_OK || !support || ctx->bmd_mode != actualMode) {
+            return -1;
+        }
+
+    }
+    if (support)
+        return 0;
+#else
+    if (direction == DIRECTION_IN) {
+        if (ctx->dli->DoesSupportVideoMode(ctx->bmd_mode, ctx->raw_format,
                                            bmdVideoOutputFlagDefault,
                                            &support, NULL) != S_OK)
             return -1;
     } else {
         if (!ctx->supports_vanc || ctx->dlo->DoesSupportVideoMode(ctx->bmd_mode, ctx->raw_format,
                                                                   bmdVideoOutputVANC,
-                                                                  &support, NULL) != S_OK) {
+                                                                  &support, NULL) != S_OK || support != bmdDisplayModeSupported) {
             /* Try without VANC enabled */
             if (ctx->dlo->DoesSupportVideoMode(ctx->bmd_mode, ctx->raw_format,
                                                bmdVideoOutputFlagDefault,
@@ -264,12 +344,13 @@ int ff_decklink_set_format(AVFormatContext *avctx,
     }
     if (support == bmdDisplayModeSupported)
         return 0;
+#endif
 
     return -1;
 }
 
-int ff_decklink_set_format(AVFormatContext *avctx, decklink_direction_t direction, int num) {
-    return ff_decklink_set_format(avctx, 0, 0, 0, 0, AV_FIELD_UNKNOWN, direction, num);
+int ff_decklink_set_format(AVFormatContext *avctx, decklink_direction_t direction) {
+    return ff_decklink_set_format(avctx, 0, 0, 0, 0, AV_FIELD_UNKNOWN, direction);
 }
 
 int ff_decklink_list_devices(AVFormatContext *avctx,
@@ -468,7 +549,7 @@ int ff_decklink_init_device(AVFormatContext *avctx, const char* name)
         return AVERROR_EXTERNAL;
     }
 
-    if (ctx->dl->QueryInterface(IID_IDeckLinkAttributes, (void **)&ctx->attr) != S_OK) {
+    if (ctx->dl->QueryInterface(IID_IDeckLinkProfileAttributes, (void **)&ctx->attr) != S_OK) {
         av_log(avctx, AV_LOG_ERROR, "Could not get attributes interface for '%s'\n", name);
         ff_decklink_cleanup(avctx);
         return AVERROR_EXTERNAL;

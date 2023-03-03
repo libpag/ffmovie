@@ -5,8 +5,8 @@ includedir=.
 
 Name: libavfilter
 Description: FFmpeg audio/video filtering library
-Version: 7.40.101
-Requires:  libavutil >= 56.22.100
+Version: 7.110.100
+Requires:  libavutil >= 56.70.100
 Conflicts:
 Libs: -L${libdir} -Wl,-rpath,${libdir} -lavfilter -lm
 Cflags: -I${includedir}

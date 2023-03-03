@@ -41,10 +41,12 @@ typedef struct NContext {
     int coordinates;
 
     int depth;
+    int max;
     int bpc;
 
     void (*filter)(uint8_t *dst, const uint8_t *p1, int width,
-                   int threshold, const uint8_t *coordinates[], int coord);
+                   int threshold, const uint8_t *coordinates[], int coord,
+                   int maxc);
 } NContext;
 
 static int query_formats(AVFilterContext *ctx)
@@ -62,6 +64,7 @@ static int query_formats(AVFilterContext *ctx)
         AV_PIX_FMT_YUV420P16, AV_PIX_FMT_YUV422P16, AV_PIX_FMT_YUV444P16,
         AV_PIX_FMT_YUVA420P9, AV_PIX_FMT_YUVA422P9, AV_PIX_FMT_YUVA444P9,
         AV_PIX_FMT_YUVA420P10, AV_PIX_FMT_YUVA422P10, AV_PIX_FMT_YUVA444P10,
+        AV_PIX_FMT_YUVA422P12, AV_PIX_FMT_YUVA444P12,
         AV_PIX_FMT_YUVA420P16, AV_PIX_FMT_YUVA422P16, AV_PIX_FMT_YUVA444P16,
         AV_PIX_FMT_GBRP, AV_PIX_FMT_GBRP9, AV_PIX_FMT_GBRP10,
         AV_PIX_FMT_GBRP12, AV_PIX_FMT_GBRP14, AV_PIX_FMT_GBRP16,
@@ -74,7 +77,8 @@ static int query_formats(AVFilterContext *ctx)
 }
 
 static void erosion(uint8_t *dst, const uint8_t *p1, int width,
-                    int threshold, const uint8_t *coordinates[], int coord)
+                    int threshold, const uint8_t *coordinates[], int coord,
+                    int maxc)
 {
     int x, i;
 
@@ -94,7 +98,8 @@ static void erosion(uint8_t *dst, const uint8_t *p1, int width,
 }
 
 static void erosion16(uint8_t *dstp, const uint8_t *p1, int width,
-                      int threshold, const uint8_t *coordinates[], int coord)
+                      int threshold, const uint8_t *coordinates[], int coord,
+                      int maxc)
 {
     uint16_t *dst = (uint16_t *)dstp;
     int x, i;
@@ -115,7 +120,8 @@ static void erosion16(uint8_t *dstp, const uint8_t *p1, int width,
 }
 
 static void dilation(uint8_t *dst, const uint8_t *p1, int width,
-                     int threshold, const uint8_t *coordinates[], int coord)
+                     int threshold, const uint8_t *coordinates[], int coord,
+                     int maxc)
 {
     int x, i;
 
@@ -135,14 +141,15 @@ static void dilation(uint8_t *dst, const uint8_t *p1, int width,
 }
 
 static void dilation16(uint8_t *dstp, const uint8_t *p1, int width,
-                       int threshold, const uint8_t *coordinates[], int coord)
+                       int threshold, const uint8_t *coordinates[], int coord,
+                       int maxc)
 {
     uint16_t *dst = (uint16_t *)dstp;
     int x, i;
 
     for (x = 0; x < width; x++) {
         int max = AV_RN16A(&p1[x * 2]);
-        int limit = FFMIN(max + threshold, 255);
+        int limit = FFMIN(max + threshold, maxc);
 
         for (i = 0; i < 8; i++) {
             if (coord & (1 << i)) {
@@ -156,7 +163,8 @@ static void dilation16(uint8_t *dstp, const uint8_t *p1, int width,
 }
 
 static void deflate(uint8_t *dst, const uint8_t *p1, int width,
-                    int threshold, const uint8_t *coordinates[], int coord)
+                    int threshold, const uint8_t *coordinates[], int coord,
+                    int maxc)
 {
     int x, i;
 
@@ -171,7 +179,8 @@ static void deflate(uint8_t *dst, const uint8_t *p1, int width,
 }
 
 static void deflate16(uint8_t *dstp, const uint8_t *p1, int width,
-                      int threshold, const uint8_t *coordinates[], int coord)
+                      int threshold, const uint8_t *coordinates[], int coord,
+                      int maxc)
 {
     uint16_t *dst = (uint16_t *)dstp;
     int x, i;
@@ -182,12 +191,13 @@ static void deflate16(uint8_t *dstp, const uint8_t *p1, int width,
 
         for (i = 0; i < 8; sum += AV_RN16A(coordinates[i++] + x * 2));
 
-        dst[x] = FFMAX(FFMIN(sum / 8, p1[x]), limit);
+        dst[x] = FFMAX(FFMIN(sum / 8, AV_RN16A(&p1[2 * x])), limit);
     }
 }
 
 static void inflate(uint8_t *dst, const uint8_t *p1, int width,
-                    int threshold, const uint8_t *coordinates[], int coord)
+                    int threshold, const uint8_t *coordinates[], int coord,
+                    int maxc)
 {
     int x, i;
 
@@ -202,18 +212,19 @@ static void inflate(uint8_t *dst, const uint8_t *p1, int width,
 }
 
 static void inflate16(uint8_t *dstp, const uint8_t *p1, int width,
-                      int threshold, const uint8_t *coordinates[], int coord)
+                      int threshold, const uint8_t *coordinates[], int coord,
+                      int maxc)
 {
     uint16_t *dst = (uint16_t *)dstp;
     int x, i;
 
     for (x = 0; x < width; x++) {
         int sum = 0;
-        int limit = FFMIN(AV_RN16A(&p1[2 * x]) + threshold, 255);
+        int limit = FFMIN(AV_RN16A(&p1[2 * x]) + threshold, maxc);
 
         for (i = 0; i < 8; sum += AV_RN16A(coordinates[i++] + x * 2));
 
-        dst[x] = FFMIN(FFMAX(sum / 8, p1[x]), limit);
+        dst[x] = FFMIN(FFMAX(sum / 8, AV_RN16A(&p1[x * 2])), limit);
     }
 }
 
@@ -224,6 +235,7 @@ static int config_input(AVFilterLink *inlink)
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(inlink->format);
 
     s->depth = desc->comp[0].depth;
+    s->max = (1 << s->depth) - 1;
     s->bpc = (s->depth + 7) / 8;
 
     s->planewidth[1] = s->planewidth[2] = AV_CEIL_RSHIFT(inlink->w, desc->log2_chroma_w);
@@ -285,9 +297,11 @@ static int filter_slice(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
                                                src + (width - 2) * bpc,                                                      src + (width - 2) * bpc,
                                                src + (width - 2) * bpc + ph * stride, src + (width - 1) * bpc + ph * stride, src + (width - 2) * bpc + ph * stride};
 
-            s->filter(dst,                     src,                     1,         threshold, coordinateslb, s->coordinates);
-            s->filter(dst          + 1  * bpc, src          + 1  * bpc, width - 2, threshold, coordinates,   s->coordinates);
-            s->filter(dst + (width - 1) * bpc, src + (width - 1) * bpc, 1,         threshold, coordinatesrb, s->coordinates);
+            s->filter(dst,                         src,                     1,         threshold, coordinateslb, s->coordinates, s->max);
+            if (width > 1) {
+                s->filter(dst          + 1  * bpc, src          + 1  * bpc, width - 2, threshold, coordinates,   s->coordinates, s->max);
+                s->filter(dst + (width - 1) * bpc, src + (width - 1) * bpc, 1,         threshold, coordinatesrb, s->coordinates, s->max);
+            }
 
             src += stride;
             dst += dstride;
@@ -339,7 +353,7 @@ static const AVFilterPad neighbor_outputs[] = {
 };
 
 #define OFFSET(x) offsetof(NContext, x)
-#define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM
+#define FLAGS AV_OPT_FLAG_FILTERING_PARAM|AV_OPT_FLAG_VIDEO_PARAM|AV_OPT_FLAG_RUNTIME_PARAM
 
 #define DEFINE_NEIGHBOR_FILTER(name_, description_)          \
 AVFILTER_DEFINE_CLASS(name_);                                \
@@ -354,62 +368,47 @@ AVFilter ff_vf_##name_ = {                                   \
     .outputs       = neighbor_outputs,                       \
     .flags         = AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC| \
                      AVFILTER_FLAG_SLICE_THREADS,            \
+    .process_command = ff_filter_process_command,            \
 }
 
-#if CONFIG_EROSION_FILTER
-
-static const AVOption erosion_options[] = {
+/* The following options are shared between all filters here;
+ * the de/inflate filters only use the threshold* options. */
+#define DEINFLATE_OPTIONS_OFFSET (CONFIG_EROSION_FILTER || CONFIG_DILATION_FILTER)
+static const AVOption options[] = {
+#if CONFIG_EROSION_FILTER || CONFIG_DILATION_FILTER
+    { "coordinates", "set coordinates",               OFFSET(coordinates),    AV_OPT_TYPE_INT, {.i64=255},   0, 255,   FLAGS },
+#endif
     { "threshold0",  "set threshold for 1st plane",   OFFSET(threshold[0]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
     { "threshold1",  "set threshold for 2nd plane",   OFFSET(threshold[1]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
     { "threshold2",  "set threshold for 3rd plane",   OFFSET(threshold[2]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
     { "threshold3",  "set threshold for 4th plane",   OFFSET(threshold[3]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "coordinates", "set coordinates",               OFFSET(coordinates),    AV_OPT_TYPE_INT, {.i64=255},   0, 255,   FLAGS },
     { NULL }
 };
 
+#if CONFIG_EROSION_FILTER
+
+#define erosion_options options
 DEFINE_NEIGHBOR_FILTER(erosion, "Apply erosion effect.");
 
 #endif /* CONFIG_EROSION_FILTER */
 
 #if CONFIG_DILATION_FILTER
 
-static const AVOption dilation_options[] = {
-    { "threshold0",  "set threshold for 1st plane",   OFFSET(threshold[0]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold1",  "set threshold for 2nd plane",   OFFSET(threshold[1]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold2",  "set threshold for 3rd plane",   OFFSET(threshold[2]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold3",  "set threshold for 4th plane",   OFFSET(threshold[3]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "coordinates", "set coordinates",               OFFSET(coordinates),    AV_OPT_TYPE_INT, {.i64=255},   0, 255,   FLAGS },
-    { NULL }
-};
-
+#define dilation_options options
 DEFINE_NEIGHBOR_FILTER(dilation, "Apply dilation effect.");
 
 #endif /* CONFIG_DILATION_FILTER */
 
 #if CONFIG_DEFLATE_FILTER
 
-static const AVOption deflate_options[] = {
-    { "threshold0", "set threshold for 1st plane",   OFFSET(threshold[0]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold1", "set threshold for 2nd plane",   OFFSET(threshold[1]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold2", "set threshold for 3rd plane",   OFFSET(threshold[2]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold3", "set threshold for 4th plane",   OFFSET(threshold[3]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { NULL }
-};
-
+#define deflate_options &options[DEINFLATE_OPTIONS_OFFSET]
 DEFINE_NEIGHBOR_FILTER(deflate, "Apply deflate effect.");
 
 #endif /* CONFIG_DEFLATE_FILTER */
 
 #if CONFIG_INFLATE_FILTER
 
-static const AVOption inflate_options[] = {
-    { "threshold0", "set threshold for 1st plane",   OFFSET(threshold[0]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold1", "set threshold for 2nd plane",   OFFSET(threshold[1]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold2", "set threshold for 3rd plane",   OFFSET(threshold[2]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { "threshold3", "set threshold for 4th plane",   OFFSET(threshold[3]),   AV_OPT_TYPE_INT, {.i64=65535}, 0, 65535, FLAGS },
-    { NULL }
-};
-
+#define inflate_options &options[DEINFLATE_OPTIONS_OFFSET]
 DEFINE_NEIGHBOR_FILTER(inflate, "Apply inflate effect.");
 
 #endif /* CONFIG_INFLATE_FILTER */

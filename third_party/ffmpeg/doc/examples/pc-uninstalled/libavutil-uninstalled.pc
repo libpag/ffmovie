@@ -5,8 +5,8 @@ includedir=.
 
 Name: libavutil
 Description: FFmpeg utility library
-Version: 56.22.100
+Version: 56.70.100
 Requires: 
 Conflicts:
-Libs: -L${libdir} -Wl,-rpath,${libdir} -lavutil -pthread -lm -framework CoreFoundation -framework CoreVideo -framework CoreMedia
+Libs: -L${libdir} -Wl,-rpath,${libdir} -lavutil -lm
 Cflags: -I${includedir}

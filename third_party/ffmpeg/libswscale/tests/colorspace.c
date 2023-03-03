@@ -115,6 +115,7 @@ int main(int argc, char **argv)
                     uint8_t *dst     = dstBuffer + dstOffset;
                     const char *name = NULL;
 
+                    // don't fill the screen with shit ...
                     if (failed)
                         break;
 

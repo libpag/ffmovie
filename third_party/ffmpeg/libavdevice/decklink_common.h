@@ -24,6 +24,10 @@
 #define AVDEVICE_DECKLINK_COMMON_H
 
 #include <DeckLinkAPIVersion.h>
+#if BLACKMAGIC_DECKLINK_API_VERSION < 0x0b000000
+#define IID_IDeckLinkProfileAttributes IID_IDeckLinkAttributes
+#define IDeckLinkProfileAttributes IDeckLinkAttributes
+#endif
 
 #include "libavutil/thread.h"
 #include "decklink_common_c.h"
@@ -71,7 +75,7 @@ class decklink_output_callback;
 class decklink_input_callback;
 
 typedef struct AVPacketQueue {
-    AVPacketList *first_pkt, *last_pkt;
+    PacketList *first_pkt, *last_pkt;
     int nb_packets;
     unsigned long long size;
     int abort_request;
@@ -87,7 +91,7 @@ struct decklink_ctx {
     IDeckLinkOutput *dlo;
     IDeckLinkInput *dli;
     IDeckLinkConfiguration *cfg;
-    IDeckLinkAttributes *attr;
+    IDeckLinkProfileAttributes *attr;
     decklink_output_callback *output_callback;
 
     /* DeckLink mode information */
@@ -111,18 +115,19 @@ struct decklink_ctx {
 
     /* Status */
     int playback_started;
-    int capture_started;
     int64_t last_pts;
     unsigned long frameCount;
     unsigned int dropped;
     AVStream *audio_st;
     AVStream *video_st;
+    AVStream *klv_st;
     AVStream *teletext_st;
     uint16_t cdp_sequence_num;
 
     /* Options */
     int list_devices;
     int list_formats;
+    int enable_klv;
     int64_t teletext_lines;
     double preroll;
     int duplex_mode;
@@ -145,20 +150,19 @@ struct decklink_ctx {
 
     int channels;
     int audio_depth;
+    unsigned long tc_seen;    // used with option wait_for_tc
 };
 
 typedef enum { DIRECTION_IN, DIRECTION_OUT} decklink_direction_t;
 
-#ifdef _WIN32
-#if BLACKMAGIC_DECKLINK_API_VERSION < 0x0a040000
-typedef unsigned long buffercount_type;
-#else
-typedef unsigned int buffercount_type;
-#endif
-IDeckLinkIterator *CreateDeckLinkIteratorInstance(void);
-#else
-typedef uint32_t buffercount_type;
-#endif
+static const BMDPixelFormat decklink_raw_format_map[] = {
+    (BMDPixelFormat)0,
+    bmdFormat8BitYUV,
+    bmdFormat10BitYUV,
+    bmdFormat8BitARGB,
+    bmdFormat8BitBGRA,
+    bmdFormat10BitRGB,
+};
 
 static const BMDAudioConnection decklink_audio_connection_map[] = {
     (BMDAudioConnection)0,
@@ -189,11 +193,16 @@ static const BMDTimecodeFormat decklink_timecode_format_map[] = {
     bmdTimecodeVITC,
     bmdTimecodeVITCField2,
     bmdTimecodeSerial,
+#if BLACKMAGIC_DECKLINK_API_VERSION >= 0x0b000000
+    bmdTimecodeRP188HighFrameRate,
+#else
+    (BMDTimecodeFormat)0,
+#endif
 };
 
 int ff_decklink_set_configs(AVFormatContext *avctx, decklink_direction_t direction);
-int ff_decklink_set_format(AVFormatContext *avctx, int width, int height, int tb_num, int tb_den, enum AVFieldOrder field_order, decklink_direction_t direction = DIRECTION_OUT, int num = 0);
-int ff_decklink_set_format(AVFormatContext *avctx, decklink_direction_t direction, int num);
+int ff_decklink_set_format(AVFormatContext *avctx, int width, int height, int tb_num, int tb_den, enum AVFieldOrder field_order, decklink_direction_t direction = DIRECTION_OUT);
+int ff_decklink_set_format(AVFormatContext *avctx, decklink_direction_t direction);
 int ff_decklink_list_devices(AVFormatContext *avctx, struct AVDeviceInfoList *device_list, int show_inputs, int show_outputs);
 void ff_decklink_list_devices_legacy(AVFormatContext *avctx, int show_inputs, int show_outputs);
 int ff_decklink_list_formats(AVFormatContext *avctx, decklink_direction_t direction = DIRECTION_OUT);

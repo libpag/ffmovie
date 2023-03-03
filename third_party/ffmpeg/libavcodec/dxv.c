@@ -256,6 +256,8 @@ static int decompress_texture_thread(AVCodecContext *avctx, void *arg,
 #define CHECKPOINT(x)                                                         \
     do {                                                                      \
         if (state == 0) {                                                     \
+            if (bytestream2_get_bytes_left(gbc) < 4)                          \
+                return AVERROR_INVALIDDATA;                                   \
             value = bytestream2_get_le32(gbc);                                \
             state = 16;                                                       \
         }                                                                     \
@@ -865,8 +867,8 @@ static int dxv_decompress_dxt5(AVCodecContext *avctx)
 {
     DXVContext *ctx = avctx->priv_data;
     GetByteContext *gbc = &ctx->gbc;
-    uint32_t value, op;
-    int idx, prev, state = 0;
+    uint32_t value, op, prev;
+    int idx, state = 0;
     int pos = 4;
     int run = 0;
     int probe, check;

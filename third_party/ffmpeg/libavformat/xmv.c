@@ -115,7 +115,7 @@ typedef struct XMVDemuxContext {
     XMVAudioPacket *audio; ///< The audio packets contained in each packet.
 } XMVDemuxContext;
 
-static int xmv_probe(AVProbeData *p)
+static int xmv_probe(const AVProbeData *p)
 {
     uint32_t file_version;
 
@@ -397,8 +397,6 @@ static int xmv_process_packet_header(AVFormatContext *s)
                 av_assert0(xmv->video.stream_index < s->nb_streams);
 
                 if (vst->codecpar->extradata_size < 4) {
-                    av_freep(&vst->codecpar->extradata);
-
                     if ((ret = ff_alloc_extradata(vst->codecpar, 4)) < 0)
                         return ret;
                 }

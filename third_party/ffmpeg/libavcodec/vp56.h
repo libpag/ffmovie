@@ -26,6 +26,8 @@
 #ifndef AVCODEC_VP56_H
 #define AVCODEC_VP56_H
 
+#include "libavutil/mem_internal.h"
+
 #include "avcodec.h"
 #include "get_bits.h"
 #include "hpeldsp.h"
@@ -106,6 +108,7 @@ typedef struct VP56Macroblock {
 typedef struct VP56Model {
     uint8_t coeff_reorder[64];       /* used in vp6 only */
     uint8_t coeff_index_to_pos[64];  /* used in vp6 only */
+    uint8_t coeff_index_to_idct_selector[64]; /* used in vp6 only */
     uint8_t vector_sig[2];           /* delta sign */
     uint8_t vector_dct[2];           /* delta coding types */
     uint8_t vector_pdi[2][2];        /* predefined delta init */
@@ -158,6 +161,7 @@ struct vp56_context {
     VP56mb mb_type;
     VP56Macroblock *macroblocks;
     DECLARE_ALIGNED(16, int16_t, block_coeff)[6][64];
+    int idct_selector[6];
 
     /* motion vectors */
     VP56mv mv[6];  /* vectors for each block in MB */
@@ -171,6 +175,7 @@ struct vp56_context {
     int filter_mode;
     int max_vector_length;
     int sample_variance_threshold;
+    DECLARE_ALIGNED(8, int, bounding_values_array)[256];
 
     uint8_t coeff_ctx[4][64];              /* used in vp5 only */
     uint8_t coeff_ctx_last[4];             /* used in vp5 only */

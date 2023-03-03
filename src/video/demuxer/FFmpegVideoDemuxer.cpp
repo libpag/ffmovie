@@ -346,7 +346,7 @@ bool FFmpegVideoDemuxer::open(const std::string& filePath) {
   av_bsf_init(avbsfContext);
   avPacket.data = nullptr;
   avPacket.size = 0;
-  av_init_packet(&avPacket);
+  av_new_packet(&avPacket, 0);
   return true;
 }
 
@@ -490,7 +490,7 @@ void SetH265Headers(uint8_t* extradata, int extradataSize,
 
 std::vector<std::shared_ptr<ByteData>> FFmpegVideoDemuxer::createHeaders(AVStream* avStream) {
   AVPacket pkt;
-  av_init_packet(&pkt);
+  av_new_packet(&pkt, 0);
 
   int size = av_read_frame(formatContext, &pkt);
   if (size < 0 || pkt.size < 0) {

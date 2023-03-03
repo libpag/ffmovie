@@ -29,7 +29,6 @@
 
 #include "avcodec.h"
 #include "internal.h"
-#include "h264.h"
 #include "qsv.h"
 #include "qsv_internal.h"
 #include "qsvenc.h"
@@ -96,4 +95,5 @@ AVCodec ff_mjpeg_qsv_encoder = {
     .priv_class     = &class,
     .defaults       = qsv_enc_defaults,
     .wrapper_name   = "qsv",
+    .hw_configs     = ff_qsv_enc_hw_configs,
 };

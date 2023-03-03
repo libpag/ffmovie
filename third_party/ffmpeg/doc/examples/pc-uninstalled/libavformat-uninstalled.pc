@@ -5,8 +5,8 @@ includedir=.
 
 Name: libavformat
 Description: FFmpeg container format library
-Version: 58.20.100
-Requires:  libavcodec >= 58.35.100,  libavutil >= 56.22.100
+Version: 58.76.100
+Requires:  libavcodec >= 58.134.100,  libavutil >= 56.70.100
 Conflicts:
 Libs: -L${libdir} -Wl,-rpath,${libdir} -lavformat -lm
 Cflags: -I${includedir}

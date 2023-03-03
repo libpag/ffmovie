@@ -26,8 +26,6 @@
  * (by Michael Niedermayer) and lavfi/avf_showwaves (by Stefano Sabatini).
  */
 
-// NOTICE 此文件被手动更新过以适配 studio 频谱图展示
-
 #include <math.h>
 
 #include "libavcodec/avfft.h"
@@ -49,7 +47,7 @@ enum DisplayMode  { COMBINED, SEPARATE, NB_MODES };
 enum DataMode     { D_MAGNITUDE, D_PHASE, NB_DMODES };
 enum FrequencyScale { F_LINEAR, F_LOG, NB_FSCALES };
 enum DisplayScale { LINEAR, SQRT, CBRT, LOG, FOURTHRT, FIFTHRT, NB_SCALES };
-enum ColorMode    { CHANNEL, INTENSITY, RAINBOW, MORELAND, NEBULAE, FIRE, FIERY, FRUIT, COOL, MAGMA, GREEN, NB_CLMODES };
+enum ColorMode    { CHANNEL, INTENSITY, RAINBOW, MORELAND, NEBULAE, FIRE, FIERY, FRUIT, COOL, MAGMA, GREEN, VIRIDIS, PLASMA, CIVIDIS, TERRAIN, NB_CLMODES };
 enum SlideMode    { REPLACE, SCROLL, FULLFRAME, RSCROLL, NB_SLIDES };
 enum Orientation  { VERTICAL, HORIZONTAL, NB_ORIENTATIONS };
 
@@ -128,6 +126,10 @@ static const AVOption showspectrum_options[] = {
         { "cool",      "cool based coloring",             0, AV_OPT_TYPE_CONST, {.i64=COOL},      0, 0, FLAGS, "color" },
         { "magma",     "magma based coloring",            0, AV_OPT_TYPE_CONST, {.i64=MAGMA},     0, 0, FLAGS, "color" },
         { "green",     "green based coloring",            0, AV_OPT_TYPE_CONST, {.i64=GREEN},     0, 0, FLAGS, "color" },
+        { "viridis",   "viridis based coloring",          0, AV_OPT_TYPE_CONST, {.i64=VIRIDIS},   0, 0, FLAGS, "color" },
+        { "plasma",    "plasma based coloring",           0, AV_OPT_TYPE_CONST, {.i64=PLASMA},    0, 0, FLAGS, "color" },
+        { "cividis",   "cividis based coloring",          0, AV_OPT_TYPE_CONST, {.i64=CIVIDIS},   0, 0, FLAGS, "color" },
+        { "terrain",   "terrain based coloring",          0, AV_OPT_TYPE_CONST, {.i64=TERRAIN},   0, 0, FLAGS, "color" },
     { "scale", "set display scale", OFFSET(scale), AV_OPT_TYPE_INT, {.i64=SQRT}, LINEAR, NB_SCALES-1, FLAGS, "scale" },
         { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=LINEAR}, 0, 0, FLAGS, "scale" },
         { "sqrt", "square root", 0, AV_OPT_TYPE_CONST, {.i64=SQRT},   0, 0, FLAGS, "scale" },
@@ -135,9 +137,9 @@ static const AVOption showspectrum_options[] = {
         { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=LOG},    0, 0, FLAGS, "scale" },
         { "4thrt","4th root",    0, AV_OPT_TYPE_CONST, {.i64=FOURTHRT}, 0, 0, FLAGS, "scale" },
         { "5thrt","5th root",    0, AV_OPT_TYPE_CONST, {.i64=FIFTHRT},  0, 0, FLAGS, "scale" },
-     { "fscale", "set frequency scale", OFFSET(fscale), AV_OPT_TYPE_INT, {.i64=F_LINEAR}, 0, NB_FSCALES-1, FLAGS, "fscale" },
-         { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=F_LINEAR}, 0, 0, FLAGS, "fscale" },
-         { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=F_LOG},    0, 0, FLAGS, "fscale" },
+    { "fscale", "set frequency scale", OFFSET(fscale), AV_OPT_TYPE_INT, {.i64=F_LINEAR}, 0, NB_FSCALES-1, FLAGS, "fscale" },
+        { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=F_LINEAR}, 0, 0, FLAGS, "fscale" },
+        { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=F_LOG},    0, 0, FLAGS, "fscale" },
     { "saturation", "color saturation multiplier", OFFSET(saturation), AV_OPT_TYPE_FLOAT, {.dbl = 1}, -10, 10, FLAGS },
     { "win_func", "set window function", OFFSET(win_func), AV_OPT_TYPE_INT, {.i64 = WFUNC_HANNING}, 0, NB_WFUNC-1, FLAGS, "win_func" },
         { "rect",     "Rectangular",      0, AV_OPT_TYPE_CONST, {.i64=WFUNC_RECT},     0, 0, FLAGS, "win_func" },
@@ -256,11 +258,42 @@ static const struct ColorTable {
     { 0.35,            85/256.,     (138-128)/256.,      (179-128)/256. },
     { 0.48,            96/256.,     (128-128)/256.,      (189-128)/256. },
     { 0.64,           128/256.,     (103-128)/256.,      (214-128)/256. },
-    { 0.78,           167/256.,      (85-128)/256.,      (174-128)/256. },
-    {    1,           205/256.,      (80-128)/256.,      (152-128)/256. }},
+    { 0.92,           205/256.,      (80-128)/256.,      (152-128)/256. },
+    {    1,                  1,                  0,                   0 }},
     [GREEN] = {
     {    0,                  0,                  0,                   0 },
     {  .75,                 .5,                  0,                 -.5 },
+    {    1,                  1,                  0,                   0 }},
+    [VIRIDIS] = {
+    {    0,                  0,                  0,                   0 },
+    { 0.10,          0x39/255.,   (0x9D -128)/255.,    (0x8F -128)/255. },
+    { 0.23,          0x5C/255.,   (0x9A -128)/255.,    (0x68 -128)/255. },
+    { 0.35,          0x69/255.,   (0x93 -128)/255.,    (0x57 -128)/255. },
+    { 0.48,          0x76/255.,   (0x88 -128)/255.,    (0x4B -128)/255. },
+    { 0.64,          0x8A/255.,   (0x72 -128)/255.,    (0x4F -128)/255. },
+    { 0.80,          0xA3/255.,   (0x50 -128)/255.,    (0x66 -128)/255. },
+    {    1,          0xCC/255.,   (0x2F -128)/255.,    (0x87 -128)/255. }},
+    [PLASMA] = {
+    {    0,                  0,                  0,                   0 },
+    { 0.10,          0x27/255.,   (0xC2 -128)/255.,    (0x82 -128)/255. },
+    { 0.58,          0x5B/255.,   (0x9A -128)/255.,    (0xAE -128)/255. },
+    { 0.70,          0x89/255.,   (0x44 -128)/255.,    (0xAB -128)/255. },
+    { 0.80,          0xB4/255.,   (0x2B -128)/255.,    (0x9E -128)/255. },
+    { 0.91,          0xD2/255.,   (0x38 -128)/255.,    (0x92 -128)/255. },
+    {    1,                  1,                  0,                  0. }},
+    [CIVIDIS] = {
+    {    0,                  0,                  0,                   0 },
+    { 0.20,          0x28/255.,   (0x98 -128)/255.,    (0x6F -128)/255. },
+    { 0.50,          0x48/255.,   (0x95 -128)/255.,    (0x74 -128)/255. },
+    { 0.63,          0x69/255.,   (0x84 -128)/255.,    (0x7F -128)/255. },
+    { 0.76,          0x89/255.,   (0x75 -128)/255.,    (0x84 -128)/255. },
+    { 0.90,          0xCE/255.,   (0x35 -128)/255.,    (0x95 -128)/255. },
+    {    1,                  1,                  0,                  0. }},
+    [TERRAIN] = {
+    {    0,                  0,                  0,                   0 },
+    { 0.15,                  0,                 .5,                   0 },
+    { 0.60,                  1,                -.5,                 -.5 },
+    { 0.85,                  1,                -.5,                  .5 },
     {    1,                  1,                  0,                   0 }},
 };
 
@@ -322,20 +355,20 @@ static int query_formats(AVFilterContext *ctx)
 
     /* set input audio formats */
     formats = ff_make_format_list(sample_fmts);
-    if ((ret = ff_formats_ref(formats, &inlink->out_formats)) < 0)
+    if ((ret = ff_formats_ref(formats, &inlink->outcfg.formats)) < 0)
         return ret;
 
     layouts = ff_all_channel_layouts();
-    if ((ret = ff_channel_layouts_ref(layouts, &inlink->out_channel_layouts)) < 0)
+    if ((ret = ff_channel_layouts_ref(layouts, &inlink->outcfg.channel_layouts)) < 0)
         return ret;
 
     formats = ff_all_samplerates();
-    if ((ret = ff_formats_ref(formats, &inlink->out_samplerates)) < 0)
+    if ((ret = ff_formats_ref(formats, &inlink->outcfg.samplerates)) < 0)
         return ret;
 
     /* set output video format */
     formats = ff_make_format_list(pix_fmts);
-    if ((ret = ff_formats_ref(formats, &outlink->in_formats)) < 0)
+    if ((ret = ff_formats_ref(formats, &outlink->incfg.formats)) < 0)
         return ret;
 
     return 0;
@@ -359,29 +392,29 @@ static int run_channel_fft(AVFilterContext *ctx, void *arg, int jobnr, int nb_jo
     }
 
     if (s->stop) {
-        double theta, phi, psi, a, b, S, c;
+        float theta, phi, psi, a, b, S, c;
         FFTComplex *g = s->fft_data[ch];
         FFTComplex *h = s->fft_scratch[ch];
         int L = s->buf_size;
         int N = s->win_size;
         int M = s->win_size / 2;
 
-        phi = 2.0 * M_PI * (s->stop - s->start) / (double)inlink->sample_rate / (M - 1);
-        theta = 2.0 * M_PI * s->start / (double)inlink->sample_rate;
+        phi = 2.f * M_PI * (s->stop - s->start) / (float)inlink->sample_rate / (M - 1);
+        theta = 2.f * M_PI * s->start / (float)inlink->sample_rate;
 
         for (int n = 0; n < M; n++) {
-            h[n].re = cos(n * n / 2.0 * phi);
-            h[n].im = sin(n * n / 2.0 * phi);
+            h[n].re = cosf(n * n / 2.f * phi);
+            h[n].im = sinf(n * n / 2.f * phi);
         }
 
         for (int n = M; n < L; n++) {
-            h[n].re = 0.0;
-            h[n].im = 0.0;
+            h[n].re = 0.f;
+            h[n].im = 0.f;
         }
 
         for (int n = L - N; n < L; n++) {
-            h[n].re = cos((L - n) * (L - n) / 2.0 * phi);
-            h[n].im = sin((L - n) * (L - n) / 2.0 * phi);
+            h[n].re = cosf((L - n) * (L - n) / 2.f * phi);
+            h[n].im = sinf((L - n) * (L - n) / 2.f * phi);
         }
 
         for (int n = 0; n < N; n++) {
@@ -390,14 +423,14 @@ static int run_channel_fft(AVFilterContext *ctx, void *arg, int jobnr, int nb_jo
         }
 
         for (int n = N; n < L; n++) {
-            g[n].re = 0.;
-            g[n].im = 0.;
+            g[n].re = 0.f;
+            g[n].im = 0.f;
         }
 
         for (int n = 0; n < N; n++) {
-            psi = n * theta + n * n / 2.0 * phi;
-            c =  cos(psi);
-            S = -sin(psi);
+            psi = n * theta + n * n / 2.f * phi;
+            c =  cosf(psi);
+            S = -sinf(psi);
             a = c * g[n].re - S * g[n].im;
             b = S * g[n].re + c * g[n].im;
             g[n].re = a;
@@ -424,9 +457,9 @@ static int run_channel_fft(AVFilterContext *ctx, void *arg, int jobnr, int nb_jo
         av_fft_calc(s->ifft[ch], g);
 
         for (int k = 0; k < M; k++) {
-            psi = k * k / 2.0 * phi;
-            c =  cos(psi);
-            S = -sin(psi);
+            psi = k * k / 2.f * phi;
+            c =  cosf(psi);
+            S = -sinf(psi);
             a = c * g[k].re - S * g[k].im;
             b = S * g[k].re + c * g[k].im;
             s->fft_data[ch][k].re = a;
@@ -491,6 +524,10 @@ static void color_range(ShowSpectrumContext *s, int ch,
         case FRUIT:
         case COOL:
         case GREEN:
+        case VIRIDIS:
+        case PLASMA:
+        case CIVIDIS:
+        case TERRAIN:
         case MAGMA:
         case INTENSITY:
             *uf = *yf;
@@ -518,15 +555,15 @@ static void color_range(ShowSpectrumContext *s, int ch,
 
     if (s->color_mode == CHANNEL) {
         if (s->nb_display_channels > 1) {
-            *uf *= 0.5 * sin((2 * M_PI * ch) / s->nb_display_channels + M_PI * s->rotation);
-            *vf *= 0.5 * cos((2 * M_PI * ch) / s->nb_display_channels + M_PI * s->rotation);
+            *uf *= 0.5f * sinf((2 * M_PI * ch) / s->nb_display_channels + M_PI * s->rotation);
+            *vf *= 0.5f * cosf((2 * M_PI * ch) / s->nb_display_channels + M_PI * s->rotation);
         } else {
-            *uf *= 0.5 * sin(M_PI * s->rotation);
-            *vf *= 0.5 * cos(M_PI * s->rotation + M_PI_2);
+            *uf *= 0.5f * sinf(M_PI * s->rotation);
+            *vf *= 0.5f * cosf(M_PI * s->rotation + M_PI_2);
         }
     } else {
-        *uf += *uf * sin(M_PI * s->rotation);
-        *vf += *vf * cos(M_PI * s->rotation + M_PI_2);
+        *uf += *uf * sinf(M_PI * s->rotation);
+        *vf += *vf * cosf(M_PI * s->rotation + M_PI_2);
     }
 
     *uf *= s->saturation;
@@ -592,55 +629,55 @@ static char *get_time(AVFilterContext *ctx, float seconds, int x)
     return units;
 }
 
- static float log_scale(const float value, const float min, const float max)
- {
-     if (value < min)
-         return min;
-     if (value > max)
-         return max;
- 
-     {
-         const float b = logf(max / min) / (max - min);
-         const float a = max / expf(max * b);
- 
-         return expf(value * b) * a;
-     }
- }
- 
- static float get_log_hz(const int bin, const int num_bins, const float sample_rate)
- {
-     const float max_freq = sample_rate / 2;
-     const float hz_per_bin = max_freq / num_bins;
-     const float freq = hz_per_bin * bin;
-     const float scaled_freq = log_scale(freq + 1, 21, max_freq) - 1;
- 
-     return num_bins * scaled_freq / max_freq;
- }
- 
- static float inv_log_scale(const float value, const float min, const float max)
- {
-     if (value < min)
-         return min;
-     if (value > max)
-         return max;
- 
-     {
-         const float b = logf(max / min) / (max - min);
-         const float a = max / expf(max * b);
- 
-         return logf(value / a) / b;
-     }
- }
- 
- static float bin_pos(const int bin, const int num_bins, const float sample_rate)
- {
-     const float max_freq = sample_rate / 2;
-     const float hz_per_bin = max_freq / num_bins;
-     const float freq = hz_per_bin * bin;
-     const float scaled_freq = inv_log_scale(freq + 1, 21, max_freq) - 1;
- 
-     return num_bins * scaled_freq / max_freq;
- }
+static float log_scale(const float value, const float min, const float max)
+{
+    if (value < min)
+        return min;
+    if (value > max)
+        return max;
+
+    {
+        const float b = logf(max / min) / (max - min);
+        const float a = max / expf(max * b);
+
+        return expf(value * b) * a;
+    }
+}
+
+static float get_log_hz(const int bin, const int num_bins, const float sample_rate)
+{
+    const float max_freq = sample_rate / 2;
+    const float hz_per_bin = max_freq / num_bins;
+    const float freq = hz_per_bin * bin;
+    const float scaled_freq = log_scale(freq + 1, 21, max_freq) - 1;
+
+    return num_bins * scaled_freq / max_freq;
+}
+
+static float inv_log_scale(const float value, const float min, const float max)
+{
+    if (value < min)
+        return min;
+    if (value > max)
+        return max;
+
+    {
+        const float b = logf(max / min) / (max - min);
+        const float a = max / expf(max * b);
+
+        return logf(value / a) / b;
+    }
+}
+
+static float bin_pos(const int bin, const int num_bins, const float sample_rate)
+{
+    const float max_freq = sample_rate / 2;
+    const float hz_per_bin = max_freq / num_bins;
+    const float freq = hz_per_bin * bin;
+    const float scaled_freq = inv_log_scale(freq + 1, 21, max_freq) - 1;
+
+    return num_bins * scaled_freq / max_freq;
+}
 
 static int draw_legend(AVFilterContext *ctx, int samples)
 {
@@ -658,16 +695,19 @@ static int draw_legend(AVFilterContext *ctx, int samples)
                                  inlink->channel_layout);
 
     text = av_asprintf("%d Hz | %s", inlink->sample_rate, chlayout_str);
+    if (!text)
+        return AVERROR(ENOMEM);
 
     drawtext(s->outpicref, 2, outlink->h - 10, "CREATED BY LIBAVFILTER", 0);
     drawtext(s->outpicref, outlink->w - 2 - strlen(text) * 10, outlink->h - 10, text, 0);
+    av_freep(&text);
     if (s->stop) {
-        char *text = av_asprintf("Zoom: %d Hz - %d Hz", s->start, s->stop);
+        text = av_asprintf("Zoom: %d Hz - %d Hz", s->start, s->stop);
+        if (!text)
+            return AVERROR(ENOMEM);
         drawtext(s->outpicref, outlink->w - 2 - strlen(text) * 10, 3, text, 0);
         av_freep(&text);
     }
-
-    av_freep(&text);
 
     dst = s->outpicref->data[0] + (s->start_y - 1) * s->outpicref->linesize[0] + s->start_x - 1;
     for (x = 0; x < s->w + 1; x++)
@@ -711,7 +751,7 @@ static int draw_legend(AVFilterContext *ctx, int samples)
             for (y = 0; y < h; y += 40) {
                 float range = s->stop ? s->stop - s->start : inlink->sample_rate / 2;
                 float bin = s->fscale == F_LINEAR ? y : get_log_hz(y, h, inlink->sample_rate);
-                float hertz = s->start + bin * range / (float)h;
+                float hertz = s->start + bin * range / (float)(1 << (int)ceil(log2(h)));
                 char *units;
 
                 if (hertz == 0)
@@ -729,6 +769,8 @@ static int draw_legend(AVFilterContext *ctx, int samples)
         for (x = 0; x < s->w && s->single_pic; x+=80) {
             float seconds = x * spp / inlink->sample_rate;
             char *units = get_time(ctx, seconds, x);
+            if (!units)
+                return AVERROR(ENOMEM);
 
             drawtext(s->outpicref, s->start_x + x - 4 * strlen(units), s->h + s->start_y + 6, units, 0);
             drawtext(s->outpicref, s->start_x + x - 4 * strlen(units), s->start_y - 12, units, 0);
@@ -767,7 +809,7 @@ static int draw_legend(AVFilterContext *ctx, int samples)
             for (x = 0; x < w - 79; x += 80) {
                 float range = s->stop ? s->stop - s->start : inlink->sample_rate / 2;
                 float bin = s->fscale == F_LINEAR ? x : get_log_hz(x, w, inlink->sample_rate);
-                float hertz = s->start + bin * range / (float)w;
+                float hertz = s->start + bin * range / (float)(1 << (int)ceil(log2(w)));
                 char *units;
 
                 if (hertz == 0)
@@ -785,6 +827,8 @@ static int draw_legend(AVFilterContext *ctx, int samples)
         for (y = 0; y < s->h && s->single_pic; y+=40) {
             float seconds = y * spp / inlink->sample_rate;
             char *units = get_time(ctx, seconds, x);
+            if (!units)
+                return AVERROR(ENOMEM);
 
             drawtext(s->outpicref, s->start_x - 8 * strlen(units) - 4, s->start_y + y - 4, units, 0);
             av_free(units);
@@ -817,7 +861,7 @@ static int draw_legend(AVFilterContext *ctx, int samples)
         }
 
         for (y = 0; ch == 0 && y < h; y += h / 10) {
-            float value = 120.0 * log10(1. - y / (float)h);
+            float value = 120.f * log10f(1.f - y / (float)h);
             char *text;
 
             if (value < -120)
@@ -833,52 +877,52 @@ static int draw_legend(AVFilterContext *ctx, int samples)
     return 0;
 }
 
- static float get_value(AVFilterContext *ctx, int ch, int y)
- {
-     ShowSpectrumContext *s = ctx->priv;
-     float *magnitudes = s->magnitudes[ch];
-     float *phases = s->phases[ch];
-     float a;
- 
-     switch (s->data) {
-     case D_MAGNITUDE:
-         /* get magnitude */
-         a = magnitudes[y];
-         break;
-     case D_PHASE:
-         /* get phase */
-         a = phases[y];
-         break;
-     default:
-         av_assert0(0);
-     }
- 
-     /* apply scale */
-     switch (s->scale) {
-     case LINEAR:
-         a = av_clipf(a, 0, 1);
-         break;
-     case SQRT:
-         a = av_clipf(sqrtf(a), 0, 1);
-         break;
-     case CBRT:
-         a = av_clipf(cbrtf(a), 0, 1);
-         break;
-     case FOURTHRT:
-         a = av_clipf(sqrtf(sqrtf(a)), 0, 1);
-         break;
-     case FIFTHRT:
-         a = av_clipf(powf(a, 0.20), 0, 1);
-         break;
-     case LOG:
-         a = 1.f + log10f(av_clipf(a, 1e-6, 1)) / 6.f; // zero = -120dBFS
-         break;
-     default:
-         av_assert0(0);
-     }
- 
-     return a;
- }
+static float get_value(AVFilterContext *ctx, int ch, int y)
+{
+    ShowSpectrumContext *s = ctx->priv;
+    float *magnitudes = s->magnitudes[ch];
+    float *phases = s->phases[ch];
+    float a;
+
+    switch (s->data) {
+    case D_MAGNITUDE:
+        /* get magnitude */
+        a = magnitudes[y];
+        break;
+    case D_PHASE:
+        /* get phase */
+        a = phases[y];
+        break;
+    default:
+        av_assert0(0);
+    }
+
+    /* apply scale */
+    switch (s->scale) {
+    case LINEAR:
+        a = av_clipf(a, 0, 1);
+        break;
+    case SQRT:
+        a = av_clipf(sqrtf(a), 0, 1);
+        break;
+    case CBRT:
+        a = av_clipf(cbrtf(a), 0, 1);
+        break;
+    case FOURTHRT:
+        a = av_clipf(sqrtf(sqrtf(a)), 0, 1);
+        break;
+    case FIFTHRT:
+        a = av_clipf(powf(a, 0.20), 0, 1);
+        break;
+    case LOG:
+        a = 1.f + log10f(av_clipf(a, 1e-6, 1)) / 6.f; // zero = -120dBFS
+        break;
+    default:
+        av_assert0(0);
+    }
+
+    return a;
+}
 
 static int plot_channel_lin(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 {
@@ -945,11 +989,11 @@ static int config_output(AVFilterLink *outlink)
     int i, fft_bits, h, w;
     float overlap;
 
-     switch (s->fscale) {
-        case F_LINEAR: s->plot_channel = plot_channel_lin; break;
-        case F_LOG:    s->plot_channel = plot_channel_log; break;
-        default: return AVERROR_BUG;
-     }
+    switch (s->fscale) {
+    case F_LINEAR: s->plot_channel = plot_channel_lin; break;
+    case F_LOG:    s->plot_channel = plot_channel_log; break;
+    default: return AVERROR_BUG;
+    }
 
     s->stop = FFMIN(s->stop, inlink->sample_rate / 2);
     if (s->stop && s->stop <= s->start) {
@@ -1091,7 +1135,7 @@ static int config_output(AVFilterLink *outlink)
         generate_window_func(s->window_func_lut, s->win_size, s->win_func, &overlap);
         if (s->overlap == 1)
             s->overlap = overlap;
-        s->hop_size = (1. - s->overlap) * s->win_size;
+        s->hop_size = (1.f - s->overlap) * s->win_size;
         if (s->hop_size < 1) {
             av_log(ctx, AV_LOG_ERROR, "overlap %f too big\n", s->overlap);
             return AVERROR(EINVAL);
@@ -1100,7 +1144,7 @@ static int config_output(AVFilterLink *outlink)
         for (s->win_scale = 0, i = 0; i < s->win_size; i++) {
             s->win_scale += s->window_func_lut[i] * s->window_func_lut[i];
         }
-        s->win_scale = 1. / sqrt(s->win_scale);
+        s->win_scale = 1.f / sqrtf(s->win_scale);
 
         /* prepare the initial picref buffer (black frame) */
         av_frame_free(&s->outpicref);
@@ -1161,8 +1205,8 @@ static int config_output(AVFilterLink *outlink)
 
 #define RE(y, ch) s->fft_data[ch][y].re
 #define IM(y, ch) s->fft_data[ch][y].im
-#define MAGNITUDE(y, ch) hypot(RE(y, ch), IM(y, ch))
-#define PHASE(y, ch) atan2(IM(y, ch), RE(y, ch))
+#define MAGNITUDE(y, ch) hypotf(RE(y, ch), IM(y, ch))
+#define PHASE(y, ch) atan2f(IM(y, ch), RE(y, ch))
 
 static int calc_channel_magnitudes(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
 {
@@ -1228,68 +1272,6 @@ static void clear_combine_buffer(ShowSpectrumContext *s, int size)
         s->combine_buffer[3 * y + 1] = 127.5;
         s->combine_buffer[3 * y + 2] = 127.5;
     }
-}
-
-static int plot_channel(AVFilterContext *ctx, void *arg, int jobnr, int nb_jobs)
-{
-    ShowSpectrumContext *s = ctx->priv;
-    const int h = s->orientation == VERTICAL ? s->channel_height : s->channel_width;
-    const int ch = jobnr;
-    float *magnitudes = s->magnitudes[ch];
-    float *phases = s->phases[ch];
-    float yf, uf, vf;
-    int y;
-
-    /* decide color range */
-    color_range(s, ch, &yf, &uf, &vf);
-
-    /* draw the channel */
-    for (y = 0; y < h; y++) {
-        int row = (s->mode == COMBINED) ? y : ch * h + y;
-        float *out = &s->color_buffer[ch][3 * row];
-        float a;
-
-        switch (s->data) {
-        case D_MAGNITUDE:
-            /* get magnitude */
-            a = magnitudes[y];
-            break;
-        case D_PHASE:
-            /* get phase */
-            a = phases[y];
-            break;
-        default:
-            av_assert0(0);
-        }
-
-        /* apply scale */
-        switch (s->scale) {
-        case LINEAR:
-            a = av_clipf(a, 0, 1);
-            break;
-        case SQRT:
-            a = av_clipf(sqrt(a), 0, 1);
-            break;
-        case CBRT:
-            a = av_clipf(cbrt(a), 0, 1);
-            break;
-        case FOURTHRT:
-            a = av_clipf(sqrt(sqrt(a)), 0, 1);
-            break;
-        case FIFTHRT:
-            a = av_clipf(pow(a, 0.20), 0, 1);
-            break;
-        case LOG:
-            a = 1 + log10(av_clipd(a, 1e-6, 1)) / 6; // zero = -120dBFS
-            break;
-        default:
-            av_assert0(0);
-        }
-
-        pick_color(s, yf, uf, vf, a, out);
-    }
-
-    return 0;
 }
 
 static int plot_spectrum_column(AVFilterLink *inlink, AVFrame *insamples)
@@ -1383,8 +1365,12 @@ static int plot_spectrum_column(AVFilterLink *inlink, AVFrame *insamples)
         s->xpos = 0;
     if (!s->single_pic && (s->sliding != FULLFRAME || s->xpos == 0)) {
         if (s->old_pts < outpicref->pts) {
+            AVFrame *clone;
+
             if (s->legend) {
                 char *units = get_time(ctx, insamples->pts /(float)inlink->sample_rate, x);
+                if (!units)
+                    return AVERROR(ENOMEM);
 
                 if (s->orientation == VERTICAL) {
                     for (y = 0; y < 10; y++) {
@@ -1409,7 +1395,10 @@ static int plot_spectrum_column(AVFilterLink *inlink, AVFrame *insamples)
                 av_free(units);
             }
             s->old_pts = outpicref->pts;
-            ret = ff_filter_frame(outlink, av_frame_clone(s->outpicref));
+            clone = av_frame_clone(s->outpicref);
+            if (!clone)
+                return AVERROR(ENOMEM);
+            ret = ff_filter_frame(outlink, clone);
             if (ret < 0)
                 return ret;
             return 0;
@@ -1445,7 +1434,8 @@ static int activate(AVFilterContext *ctx)
         }
     }
 
-    if (s->outpicref && av_audio_fifo_size(s->fifo) >= s->win_size) {
+    if (s->outpicref && (av_audio_fifo_size(s->fifo) >= s->win_size ||
+        ff_outlink_get_status(inlink))) {
         AVFrame *fin = ff_get_audio_buffer(inlink, s->win_size);
         if (!fin)
             return AVERROR(ENOMEM);
@@ -1473,7 +1463,7 @@ static int activate(AVFilterContext *ctx)
 
         av_frame_free(&fin);
         av_audio_fifo_drain(s->fifo, s->hop_size);
-        if (ret <= 0)
+        if (ret <= 0 && !ff_outlink_get_status(inlink))
             return ret;
     }
 
@@ -1504,15 +1494,18 @@ static int activate(AVFilterContext *ctx)
     }
 
     FF_FILTER_FORWARD_STATUS(inlink, outlink);
-    if (ff_outlink_frame_wanted(outlink) && av_audio_fifo_size(s->fifo) < s->win_size) {
+    if (av_audio_fifo_size(s->fifo) >= s->win_size ||
+        ff_outlink_get_status(inlink) == AVERROR_EOF) {
+        ff_filter_set_ready(ctx, 10);
+        return 0;
+    }
+
+    if (ff_outlink_frame_wanted(outlink) && av_audio_fifo_size(s->fifo) < s->win_size &&
+        ff_outlink_get_status(inlink) != AVERROR_EOF) {
         ff_inlink_request_frame(inlink);
         return 0;
     }
 
-    if (av_audio_fifo_size(s->fifo) >= s->win_size) {
-        ff_filter_set_ready(ctx, 10);
-        return 0;
-    }
     return FFERROR_NOT_READY;
 }
 
@@ -1567,6 +1560,10 @@ static const AVOption showspectrumpic_options[] = {
         { "cool",      "cool based coloring",             0, AV_OPT_TYPE_CONST, {.i64=COOL},      0, 0, FLAGS, "color" },
         { "magma",     "magma based coloring",            0, AV_OPT_TYPE_CONST, {.i64=MAGMA},     0, 0, FLAGS, "color" },
         { "green",     "green based coloring",            0, AV_OPT_TYPE_CONST, {.i64=GREEN},     0, 0, FLAGS, "color" },
+        { "viridis",   "viridis based coloring",          0, AV_OPT_TYPE_CONST, {.i64=VIRIDIS},   0, 0, FLAGS, "color" },
+        { "plasma",    "plasma based coloring",           0, AV_OPT_TYPE_CONST, {.i64=PLASMA},    0, 0, FLAGS, "color" },
+        { "cividis",   "cividis based coloring",          0, AV_OPT_TYPE_CONST, {.i64=CIVIDIS},   0, 0, FLAGS, "color" },
+        { "terrain",   "terrain based coloring",          0, AV_OPT_TYPE_CONST, {.i64=TERRAIN},   0, 0, FLAGS, "color" },
     { "scale", "set display scale", OFFSET(scale), AV_OPT_TYPE_INT, {.i64=LOG}, 0, NB_SCALES-1, FLAGS, "scale" },
         { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=LINEAR}, 0, 0, FLAGS, "scale" },
         { "sqrt", "square root", 0, AV_OPT_TYPE_CONST, {.i64=SQRT},   0, 0, FLAGS, "scale" },
@@ -1574,9 +1571,9 @@ static const AVOption showspectrumpic_options[] = {
         { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=LOG},    0, 0, FLAGS, "scale" },
         { "4thrt","4th root",    0, AV_OPT_TYPE_CONST, {.i64=FOURTHRT}, 0, 0, FLAGS, "scale" },
         { "5thrt","5th root",    0, AV_OPT_TYPE_CONST, {.i64=FIFTHRT},  0, 0, FLAGS, "scale" },
-     { "fscale", "set frequency scale", OFFSET(fscale), AV_OPT_TYPE_INT, {.i64=F_LINEAR}, 0, NB_FSCALES-1, FLAGS, "fscale" },
-         { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=F_LINEAR}, 0, 0, FLAGS, "fscale" },
-         { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=F_LOG},    0, 0, FLAGS, "fscale" },
+    { "fscale", "set frequency scale", OFFSET(fscale), AV_OPT_TYPE_INT, {.i64=F_LINEAR}, 0, NB_FSCALES-1, FLAGS, "fscale" },
+        { "lin",  "linear",      0, AV_OPT_TYPE_CONST, {.i64=F_LINEAR}, 0, 0, FLAGS, "fscale" },
+        { "log",  "logarithmic", 0, AV_OPT_TYPE_CONST, {.i64=F_LOG},    0, 0, FLAGS, "fscale" },
     { "saturation", "color saturation multiplier", OFFSET(saturation), AV_OPT_TYPE_FLOAT, {.dbl = 1}, -10, 10, FLAGS },
     { "win_func", "set window function", OFFSET(win_func), AV_OPT_TYPE_INT, {.i64 = WFUNC_HANNING}, 0, NB_WFUNC-1, FLAGS, "win_func" },
         { "rect",     "Rectangular",      0, AV_OPT_TYPE_CONST, {.i64=WFUNC_RECT},     0, 0, FLAGS, "win_func" },
@@ -1660,7 +1657,7 @@ static int showspectrumpic_request_frame(AVFilterLink *outlink)
             if (consumed >= spb) {
                 int h = s->orientation == VERTICAL ? s->h : s->w;
 
-                scale_magnitudes(s, 1. / (consumed / spf));
+                scale_magnitudes(s, 1.f / (consumed / spf));
                 plot_spectrum_column(inlink, fin);
                 consumed = 0;
                 x++;

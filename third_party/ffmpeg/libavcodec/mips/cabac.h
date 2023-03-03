@@ -25,11 +25,11 @@
 #define AVCODEC_MIPS_CABAC_H
 
 #include "libavcodec/cabac.h"
-#include "libavutil/mips/mmiutils.h"
+#include "libavutil/mips/asmdefs.h"
 #include "config.h"
 
 #define get_cabac_inline get_cabac_inline_mips
-static av_always_inline int get_cabac_inline(CABACContext *c,
+static av_always_inline int get_cabac_inline_mips(CABACContext *c,
                                              uint8_t * const state){
     mips_reg tmp0, tmp1, tmp2, bit;
 
@@ -72,7 +72,7 @@ static av_always_inline int get_cabac_inline(CABACContext *c,
 
         "and          %[tmp0],       %[c_low],       %[cabac_mask] \n\t"
         "bnez         %[tmp0],       1f                            \n\t"
-        PTR_ADDI     "%[tmp0],       %[c_low],       -0X01         \n\t"
+        PTR_ADDIU    "%[tmp0],       %[c_low],       -0x01         \n\t"
         "xor          %[tmp0],       %[c_low],       %[tmp0]       \n\t"
         PTR_SRA      "%[tmp0],       %[tmp0],        0x0f          \n\t"
         PTR_ADDU     "%[tmp0],       %[tmp0],        %[tables]     \n\t"
@@ -109,7 +109,7 @@ static av_always_inline int get_cabac_inline(CABACContext *c,
       [lps_off]"i"(H264_LPS_RANGE_OFFSET),
       [mlps_off]"i"(H264_MLPS_STATE_OFFSET + 128),
       [norm_off]"i"(H264_NORM_SHIFT_OFFSET),
-      [cabac_mask]"i"(CABAC_MASK)
+      [cabac_mask]"r"(CABAC_MASK)
     : "memory"
     );
 

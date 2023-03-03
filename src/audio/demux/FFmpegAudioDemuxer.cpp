@@ -1,20 +1,20 @@
-/////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Tencent is pleased to support the open source community by making libpag available.
+//  Copyright (c) 2023 Tencent. All rights reserved.
 //
-//  Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
+//  This library is free software; you can redistribute it and/or modify it under the terms of the
+//  GNU Lesser General Public License as published by the Free Software Foundation; either
+//  version 2.1 of the License, or (at your option) any later version.
 //
-//  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
-//  except in compliance with the License. You may obtain a copy of the License at
+//  This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+//  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+//  the GNU Lesser General Public License for more details.
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//  You should have received a copy of the GNU Lesser General Public License along with this
+//  library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+//  Boston, MA  02110-1301  USA
 //
-//  unless required by applicable law or agreed to in writing, software distributed under the
-//  license is distributed on an "as is" basis, without warranties or conditions of any kind,
-//  either express or implied. see the license for the specific language governing permissions
-//  and limitations under the license.
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FFmpegAudioDemuxer.h"
 #include "utils/FFmpegUtils.h"

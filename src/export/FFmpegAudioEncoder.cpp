@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (c) 2021 Tencent. All rights reserved.
+//  Copyright (c) 2023 Tencent. All rights reserved.
 //
 //  This library is free software; you can redistribute it and/or modify it under the terms of the
 //  GNU Lesser General Public License as published by the Free Software Foundation; either
@@ -310,7 +310,6 @@ std::shared_ptr<MediaFormat> FFmpegAudioEncoder::getMediaFormat() {
   trackFormat->setInteger(KEY_AUDIO_SAMPLE_RATE, codecContext->sample_rate);
   trackFormat->setInteger(KEY_AUDIO_CHANNELS, codecContext->channels);
   trackFormat->setInteger(KEY_AUDIO_FRAME_SIZE, codecContext->frame_size);
-  //  trackFormat->setCodecContext(KEY_CODECCONTEXT, codecContext);
   trackFormat->setInteger(KEY_TIME_BASE_NUM, codecContext->time_base.num);
   trackFormat->setInteger(KEY_TIME_BASE_DEN, codecContext->time_base.den);
 
@@ -324,7 +323,7 @@ std::shared_ptr<MediaFormat> FFmpegAudioEncoder::getMediaFormat() {
   return trackFormat;
 }
 
-void FFmpegAudioEncoder::insertErrorMsgs(std::vector<std::string>* const toMsgs) {
+void FFmpegAudioEncoder::collectErrorMsgs(std::vector<std::string>* const toMsgs) {
   if (toMsgs == nullptr) {
     return;
   }

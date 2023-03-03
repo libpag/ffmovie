@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (c) 2021 Tencent. All rights reserved.
+//  Copyright (c) 2023 Tencent. All rights reserved.
 //
 //  This library is free software; you can redistribute it and/or modify it under the terms of the
 //  GNU Lesser General Public License as published by the Free Software Foundation; either
@@ -97,6 +97,7 @@ bool FFmpegMuxer::stop() {
 }
 
 bool FFmpegMuxer::initMuxer(const std::string& filePath) {
+  LockGuard lockGuard(locker);
   movieOutputPath = filePath;
   av_dict_set(&avDict, "movflags", "faststart", 0);
   /* allocate the output media context */
@@ -197,13 +198,15 @@ int FFmpegMuxer::addTrack(std::shared_ptr<MediaFormat> mediaFormat) {
 
 void FFmpegMuxer::refreshExtraData(int streamIndex,
                                    const std::vector<std::shared_ptr<ByteData>>& header) {
+  LockGuard lockGuard(locker);
   auto stream = streamMap[streamIndex];
   if (stream) {
     updateExtraData(stream, header);
   }
 }
 
-void FFmpegMuxer::insertErrorMsgs(std::vector<std::string>* const toMsgs) {
+void FFmpegMuxer::collectErrorMsgs(std::vector<std::string>* const toMsgs) {
+  LockGuard lockGuard(locker);
   if (toMsgs == nullptr) {
     return;
   }

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright (c) 2021 Tencent. All rights reserved.
+//  Copyright (c) 2023 Tencent. All rights reserved.
 //
 //  This library is free software; you can redistribute it and/or modify it under the terms of the
 //  GNU Lesser General Public License as published by the Free Software Foundation; either
@@ -28,6 +28,7 @@ std::unique_ptr<FFVideoEncoder> FFVideoEncoder::Make(const ExportConfig& config)
 
 FFmpegVideoEncoder::~FFmpegVideoEncoder() {
   if (codecContext) {
+    avcodec_close(codecContext);
     avcodec_free_context(&codecContext);
   }
 
@@ -155,7 +156,6 @@ CodingResult FFmpegVideoEncoder::sendFrame(AVFrame* videoFrame) {
 
 std::shared_ptr<MediaFormat> FFmpegVideoEncoder::getMediaFormat() {
   auto trackFormat = std::make_shared<MediaFormat>();
-  //  trackFormat->setCodecContext(KEY_CODECCONTEXT, codecContext);
   trackFormat->setInteger(KEY_TRACK_TYPE, VIDEO_TRACK);
   trackFormat->setInteger(KEY_WIDTH, codecContext->width);
   trackFormat->setInteger(KEY_HEIGHT, codecContext->height);
@@ -170,7 +170,7 @@ std::shared_ptr<MediaFormat> FFmpegVideoEncoder::getMediaFormat() {
   return trackFormat;
 }
 
-void FFmpegVideoEncoder::insertErrorMsgs(std::vector<std::string>* const toMsgs) {
+void FFmpegVideoEncoder::collectErrorMsgs(std::vector<std::string>* const toMsgs) {
   if (toMsgs == nullptr) {
     return;
   }

@@ -10,7 +10,7 @@ OPTIONS="--disable-all --disable-everything --disable-autodetect --enable-small 
          --enable-demuxer=aac,mp3,wav --enable-muxer=mov --enable-muxer=mp4 \
          --enable-decoder=h264,mpeg4 --enable-encoder=h264,mpeg4 \
          --enable-decoder=hevc --enable-demuxer=mov --enable-protocol=file --enable-bsf=h264_mp4toannexb \
-         --enable-bsf=hevc_mp4toannexb --enable-libx264 --enable-encoder=libx264 --enable-gpl --extra-cxxflags=-fembed-bitcode"
+         --enable-bsf=hevc_mp4toannexb --enable-libx264 --enable-encoder=libx264 --enable-gpl"
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
   OPTIONS="${OPTIONS} --disable-debug"
@@ -18,7 +18,7 @@ fi
 
 build_arch() {
   ./configure --target-os=darwin --enable-cross-compile --arch=$ARCH --cc="$CC" $OPTIONS \
-    --extra-cflags="-w $CFLAGS -arch $ARCH" --extra-ldflags="$LDFLAGS -arch $ARCH" --prefix=$BUILD_DIR/$OUT
+    --extra-cflags="-w $CFLAGS -arch $ARCH -fvisibility=hidden" --extra-ldflags="$LDFLAGS -arch $ARCH" --prefix=$BUILD_DIR/$OUT
   make -j12 >/dev/null
   make install >/dev/null
   make clean

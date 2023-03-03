@@ -97,17 +97,17 @@ if (APPLE)
     find_library(Z_LIB NAMES z)
     list(APPEND FFMOVIE_PLATFORM_SHARED_LIBS ${Z_LIB})
     # hide symbols.
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -w -exported_symbols_list ${CMAKE_CURRENT_SOURCE_DIR}/ios/ffmovie.lds")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -w  -read_only_relocs suppress -exported_symbols_list ${CMAKE_CURRENT_SOURCE_DIR}/ios/ffmovie.lds")
 
 elseif (ANDROID)
 
     # optimizes the output size
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/android/ffmovie/export.def")
     add_compile_options(-ffunction-sections -fdata-sections -Os -fno-exceptions -fno-rtti)
-
-    list(APPEND FFMOVIE_FILES src/platform/android/JDecoderFactory.cpp)
     find_library(LOG_LIB log)
     list(APPEND FFMOVIE_VENDOR_LIBS ${LOG_LIB})
+    find_library(Z_LIB NAMES z)
+    list(APPEND FFMOVIE_PLATFORM_SHARED_LIBS ${Z_LIB})
 
 endif ()
 

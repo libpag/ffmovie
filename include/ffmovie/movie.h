@@ -1,4 +1,20 @@
-
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//  Copyright (c) 2023 Tencent. All rights reserved.
+//
+//  This library is free software; you can redistribute it and/or modify it under the terms of the
+//  GNU Lesser General Public License as published by the Free Software Foundation; either
+//  version 2.1 of the License, or (at your option) any later version.
+//
+//  This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+//  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+//  the GNU Lesser General Public License for more details.
+//
+//  You should have received a copy of the GNU Lesser General Public License along with this
+//  library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+//  Boston, MA  02110-1301  USA
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
 #include <unordered_map>
@@ -296,7 +312,7 @@ class FFMOVIE_API FFMediaMuxer {
   virtual bool writeFrame(int streamIndex, void* frame) = 0;
   virtual void refreshExtraData(int streamIndex,
                                 const std::vector<std::shared_ptr<ByteData>>& header) = 0;
-  virtual void insertErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
+  virtual void collectErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
 };
 
 class FFMOVIE_API FFEncoder {
@@ -306,14 +322,13 @@ class FFMOVIE_API FFEncoder {
   virtual CodingResult onEndOfStream() = 0;
   virtual CodingResult onEncodeData(void** packet) = 0;
   virtual std::shared_ptr<MediaFormat> getMediaFormat() = 0;
-  virtual void insertErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
+  virtual void collectErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
 };
 
 class FFMOVIE_API FFAudioEncoder : public FFEncoder {
  public:
   static std::unique_ptr<FFAudioEncoder> Make(const ExportConfig& config);
   virtual CodingResult onSendData(uint8_t* data, int64_t length, int sampleCount) = 0;
-  virtual void insertErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
 };
 
 class FFMOVIE_API FFVideoEncoder : public FFEncoder {
@@ -321,7 +336,6 @@ class FFMOVIE_API FFVideoEncoder : public FFEncoder {
   static std::unique_ptr<FFVideoEncoder> Make(const ExportConfig& config);
   virtual CodingResult onSendData(std::unique_ptr<ByteData> rgbaData, int width, int height,
                                   int rowBytes, int64_t pts) = 0;
-  virtual void insertErrorMsgs(std::vector<std::string>* const toMsgs) = 0;
 };
 
 }  // namespace ffmovie

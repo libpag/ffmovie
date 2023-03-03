@@ -1,20 +1,20 @@
-/////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//  Tencent is pleased to support the open source community by making libpag available.
+//  Copyright (c) 2023 Tencent. All rights reserved.
 //
-//  Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
+//  This library is free software; you can redistribute it and/or modify it under the terms of the
+//  GNU Lesser General Public License as published by the Free Software Foundation; either
+//  version 2.1 of the License, or (at your option) any later version.
 //
-//  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
-//  except in compliance with the License. You may obtain a copy of the License at
+//  This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+//  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
+//  the GNU Lesser General Public License for more details.
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//  You should have received a copy of the GNU Lesser General Public License along with this
+//  library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+//  Boston, MA  02110-1301  USA
 //
-//  unless required by applicable law or agreed to in writing, software distributed under the
-//  license is distributed on an "as is" basis, without warranties or conditions of any kind,
-//  either express or implied. see the license for the specific language governing permissions
-//  and limitations under the license.
-//
-/////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FFmpegVideoDemuxer.h"
 #include <list>
@@ -140,6 +140,7 @@ FFmpegVideoDemuxer::~FFmpegVideoDemuxer() {
   for (auto& format : formats) {
     delete format.second;
   }
+  delete ptsDetail;
 }
 
 int64_t FFmpegVideoDemuxer::getSampleTimeAt(int64_t targetTime) {
@@ -279,6 +280,11 @@ bool FFmpegVideoDemuxer::seekTo(int64_t targetTime) {
   if (!formatContext || videoStreamIndex < 0) {
     return false;
   }
+  auto targetKeyframeIndex = ptsDetail->findKeyframeIndex(targetTime);
+  // hevc 格式的视频，如果要 seek 到一个 GOP 的后几帧时，由于后面的几帧可能被编码在后面的一个 GOP，
+  // 所以 FFmpeg 会直接 seek 到后面一个 GOP 的关键帧，这里我们直接 seek 到目标的关键帧。
+  // 例如测试用例 AsyncDecode.init_ID79850945
+  targetTime = ptsDetail->getKeyframeTime(targetKeyframeIndex);
   // flag 是 AVSEEK_FLAG_BACKWARD 时，seek 传入关键帧的时间，得到的时间小于不等于传入的时间。
   // flag 是 0 时，seek 传入关键帧的时间，得到的时间大于等于传入的时间。
   // '+1' 确保可以 seek 到指定的时间

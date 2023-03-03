@@ -20,7 +20,7 @@
 #include "utils/StringUtils.h"
 
 namespace ffmovie {
-std::unique_ptr<FFAudioEncoder> FFAudioEncoder::Make(const ExportConfig& config) {
+std::unique_ptr<FFAudioEncoder> FFAudioEncoder::Make(const AudioExportConfig& config) {
   return std::unique_ptr<FFmpegAudioEncoder>(new FFmpegAudioEncoder(config));
 }
 
@@ -143,7 +143,7 @@ CodingResult FFmpegAudioEncoder::onEncodeData(void** encodedPacket) {
   }
 }
 
-FFmpegAudioEncoder::FFmpegAudioEncoder(const ExportConfig& config)
+FFmpegAudioEncoder::FFmpegAudioEncoder(const AudioExportConfig& config)
     : audioEncoderConfig(std::move(config)) {
   lastAudioFrameConfig.channels = -1;
   lastAudioFrameConfig.sampleRate = -1;

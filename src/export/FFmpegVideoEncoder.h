@@ -47,7 +47,7 @@ namespace ffmovie {
 
 class FFmpegVideoEncoder : public FFVideoEncoder {
  public:
-  explicit FFmpegVideoEncoder(const ExportConfig& config);
+  explicit FFmpegVideoEncoder(const VideoExportConfig& config);
   ~FFmpegVideoEncoder() override;
   bool initEncoder() override;
   CodingResult onSendData(std::unique_ptr<ByteData> rgbaData, int width, int height, int rowBytes,
@@ -62,7 +62,7 @@ class FFmpegVideoEncoder : public FFVideoEncoder {
   bool initCodecContext();
 
   CodingResult sendFrame(AVFrame* videoFrame);
-  ExportConfig videoEncoderConfig;
+  VideoExportConfig videoEncoderConfig;
   AVCodecID codecId = AVCodecID::AV_CODEC_ID_H264;
   AVCodecContext* codecContext = nullptr;
   AVCodec* avCodec = nullptr;

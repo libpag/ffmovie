@@ -148,16 +148,19 @@ enum class FFMOVIE_API NALUType {
 
 enum class FFMOVIE_API VideoProfile { BASELINE = 0, High };
 
-struct FFMOVIE_API ExportConfig {
-  std::string outputPath;
-  int sampleRate = 44100;
-  int channels = 2;
-  int audioBitrate = 128000;
+struct FFMOVIE_API VideoExportConfig {
+
   int width = 1280;
   int height = 720;
   int frameRate = 30;
   int videoBitrate = 8000000;
   VideoProfile profile = VideoProfile::BASELINE;
+};
+
+struct FFMOVIE_API AudioExportConfig {
+  int sampleRate = 44100;
+  int channels = 2;
+  int audioBitrate = 128000;
 };
 
 #define KEY_MIME "mime"
@@ -292,18 +295,9 @@ enum class FFMOVIE_API CodingResult {
   EndOfStream = -3,
 };
 
-enum class FFMOVIE_API ExportStatus { UnKnow, Exporting, Failed, Canceled, Complete };
-
-class FFMOVIE_API ExportCallback {
- public:
-  virtual ~ExportCallback() = default;
-  virtual void onProgress(float progress) = 0;
-  virtual void onStatusChange(ExportStatus status, const std::vector<std::string>& msg) = 0;
-};
-
 class FFMOVIE_API FFMediaMuxer {
  public:
-  static std::shared_ptr<FFMediaMuxer> Make(ExportCallback* callback);
+  static std::shared_ptr<FFMediaMuxer> Make();
   virtual ~FFMediaMuxer() = default;
   virtual bool initMuxer(const std::string& filePath) = 0;
   virtual bool start() = 0;
@@ -327,13 +321,13 @@ class FFMOVIE_API FFEncoder {
 
 class FFMOVIE_API FFAudioEncoder : public FFEncoder {
  public:
-  static std::unique_ptr<FFAudioEncoder> Make(const ExportConfig& config);
+  static std::unique_ptr<FFAudioEncoder> Make(const AudioExportConfig& config);
   virtual CodingResult onSendData(uint8_t* data, int64_t length, int sampleCount) = 0;
 };
 
 class FFMOVIE_API FFVideoEncoder : public FFEncoder {
  public:
-  static std::unique_ptr<FFVideoEncoder> Make(const ExportConfig& config);
+  static std::unique_ptr<FFVideoEncoder> Make(const VideoExportConfig& config);
   virtual CodingResult onSendData(std::unique_ptr<ByteData> rgbaData, int width, int height,
                                   int rowBytes, int64_t pts) = 0;
 };

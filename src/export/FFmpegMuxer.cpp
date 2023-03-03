@@ -25,8 +25,8 @@ namespace ffmovie {
 #define FF_DISABLE_DEPRECATION_WARNINGS \
   _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
 
-std::shared_ptr<FFMediaMuxer> FFMediaMuxer::Make(ExportCallback* callback) {
-  return std::make_shared<FFmpegMuxer>(callback);
+std::shared_ptr<FFMediaMuxer> FFMediaMuxer::Make() {
+  return std::make_shared<FFmpegMuxer>();
 }
 
 FFmpegMuxer::~FFmpegMuxer() {
@@ -70,7 +70,6 @@ bool FFmpegMuxer::start() {
     ret = avio_open(&avFormatContext->pb, movieOutputPath.c_str(), AVIO_FLAG_WRITE);
     if (ret < 0) {
       msgs.emplace_back(string_format("Could not open '%s'!!!", movieOutputPath.c_str()));
-      _callback->onStatusChange(ExportStatus::Failed, msgs);
       return false;
     }
   }
@@ -79,7 +78,6 @@ bool FFmpegMuxer::start() {
   ret = avformat_write_header(avFormatContext, &avDict);
   if (ret < 0) {
     msgs.emplace_back("Error occurred when opening output file");
-    _callback->onStatusChange(ExportStatus::Failed, msgs);
     return false;
   }
 
@@ -108,7 +106,6 @@ bool FFmpegMuxer::initMuxer(const std::string& filePath) {
   }
   if (!avFormatContext) {
     msgs.emplace_back("Could not deduce output format.");
-    _callback->onStatusChange(ExportStatus::Failed, msgs);
     return false;
   }
 

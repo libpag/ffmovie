@@ -22,7 +22,7 @@
 
 namespace ffmovie {
 
-std::unique_ptr<FFVideoEncoder> FFVideoEncoder::Make(const ExportConfig& config) {
+std::unique_ptr<FFVideoEncoder> FFVideoEncoder::Make(const VideoExportConfig& config) {
   return std::unique_ptr<FFmpegVideoEncoder>(new FFmpegVideoEncoder(config));
 }
 
@@ -105,7 +105,7 @@ CodingResult FFmpegVideoEncoder::onEncodeData(void** encodedPacket) {
   }
 }
 
-FFmpegVideoEncoder::FFmpegVideoEncoder(const ExportConfig& config)
+FFmpegVideoEncoder::FFmpegVideoEncoder(const VideoExportConfig& config)
     : videoEncoderConfig(std::move(config)) {
 }
 

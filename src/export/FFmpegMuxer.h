@@ -43,7 +43,6 @@ namespace ffmovie {
 
 class FFmpegMuxer : public FFMediaMuxer {
  public:
-  FFmpegMuxer(ExportCallback* callback) : _callback(callback){};
 
   ~FFmpegMuxer() override;
 
@@ -67,7 +66,6 @@ class FFmpegMuxer : public FFMediaMuxer {
 
   void updateExtraData(AVStream* stream, const std::vector<std::shared_ptr<ByteData>>& header);
 
-  ExportCallback* _callback = nullptr;
   std::string movieOutputPath;
   AVOutputFormat* avOutputFormat = nullptr;
   AVFormatContext* avFormatContext = nullptr;

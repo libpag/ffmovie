@@ -47,14 +47,14 @@ namespace ffmovie {
 
 class FFmpegAudioEncoder : public FFAudioEncoder {
  public:
-  explicit FFmpegAudioEncoder(const ExportConfig& config);
+  explicit FFmpegAudioEncoder(const AudioExportConfig& config);
   ~FFmpegAudioEncoder() override;
   bool initEncoder() override;
-  CodingResult onSendData(uint8_t *data, int64_t length, int sampleCount) override;
-  CodingResult onEncodeData(void **packet) override;
+  CodingResult onSendData(uint8_t* data, int64_t length, int sampleCount) override;
+  CodingResult onEncodeData(void** packet) override;
   CodingResult onEndOfStream() override;
   std::shared_ptr<MediaFormat> getMediaFormat() override;
-  void collectErrorMsgs(std::vector<std::string> *const toMsgs) override;
+  void collectErrorMsgs(std::vector<std::string>* const toMsgs) override;
 
  private:
   bool initCodecContext();
@@ -66,7 +66,7 @@ class FFmpegAudioEncoder : public FFAudioEncoder {
   bool createFrame();
   bool createSrcFrame();
 
-  ExportConfig audioEncoderConfig;
+  AudioExportConfig audioEncoderConfig;
   AVCodecID codecID = AVCodecID::AV_CODEC_ID_AAC;
   AVCodecContext* codecContext = nullptr;
   AVCodec* avCodec = nullptr;
@@ -80,4 +80,4 @@ class FFmpegAudioEncoder : public FFAudioEncoder {
   bool needResample;
   std::vector<std::string> msgs;
 };
-}  // namespace pag
+}  // namespace ffmovie

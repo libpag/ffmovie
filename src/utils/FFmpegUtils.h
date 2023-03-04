@@ -19,6 +19,7 @@
 #pragma once
 
 #include <string>
+#include "ffmovie/movie.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,5 +40,7 @@ std::string AVCodecIDToStringAudio(AVCodecID codecId);
 AVCodecID MineStringToVideoAVCodecID(const std::string& mime);
 
 AVCodecID MineStringToAudioAVCodecID(const std::string& mime);
+
+AVPacket* CreateAVPacket(EncodePacket* packet);
 
 }  // namespace ffmovie

@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FFmpegMuxer.h"
+#include "utils/FFmpegUtils.h"
 #include "utils/LockGuard.h"
 #include "utils/StringUtils.h"
 
@@ -60,6 +61,16 @@ bool FFmpegMuxer::writeFrame(int streamIndex, void* frame) {
   int ret = av_interleaved_write_frame(avFormatContext, avPacket);
 
   return ret >= 0;
+}
+
+bool FFmpegMuxer::writeFrame(int streamIndex, std::shared_ptr<EncodePacket> packet) {
+  AVPacket* avPacket = CreateAVPacket(packet.get());
+  if (avPacket == nullptr) {
+    return false;
+  }
+  auto result = writeFrame(streamIndex, avPacket);
+  av_packet_free(&avPacket);
+  return result;
 }
 
 bool FFmpegMuxer::start() {

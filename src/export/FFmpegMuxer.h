@@ -51,6 +51,7 @@ class FFmpegMuxer : public FFMediaMuxer {
   bool stop() override;
   int addTrack(std::shared_ptr<MediaFormat> mediaFormat) override;
   bool writeFrame(int streamIndex, void* frame) override;
+  bool writeFrame(int streamIndex, std::shared_ptr<EncodePacket> packet) override;
   void refreshExtraData(int streamIndex,
                         const std::vector<std::shared_ptr<ByteData>>& header) override;
 

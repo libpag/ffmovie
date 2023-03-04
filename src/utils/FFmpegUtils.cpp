@@ -147,4 +147,18 @@ AVCodecID MineStringToAudioAVCodecID(const std::string& mime) {
   }
   return codecId;
 }
+
+AVPacket* CreateAVPacket(EncodePacket* encodePacket) {
+  AVPacket* packet = av_packet_alloc();
+  int error = av_new_packet(packet, encodePacket->data->length());
+  if (error != 0) {
+    av_packet_free(&packet);
+    return nullptr;
+  }
+  packet->flags = encodePacket->isKeyFrame;
+  packet->pts = encodePacket->pts;
+  packet->dts = encodePacket->dts;
+  memcpy(packet->data, encodePacket->data->data(), encodePacket->data->length());
+  return packet;
+}
 }  // namespace ffmovie

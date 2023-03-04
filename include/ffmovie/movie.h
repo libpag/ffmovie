@@ -295,6 +295,15 @@ enum class FFMOVIE_API CodingResult {
   EndOfStream = -3,
 };
 
+#define NOPTS_VALUE ((int64_t)UINT64_C(0x8000000000000000))
+
+struct FFMOVIE_API EncodePacket {
+  std::unique_ptr<ByteData> data;
+  bool isKeyFrame = false;
+  int64_t pts = -1;
+  int64_t dts = NOPTS_VALUE;
+};
+
 class FFMOVIE_API FFMediaMuxer {
  public:
   static std::shared_ptr<FFMediaMuxer> Make();
@@ -303,7 +312,8 @@ class FFMOVIE_API FFMediaMuxer {
   virtual bool start() = 0;
   virtual bool stop() = 0;
   virtual int addTrack(std::shared_ptr<MediaFormat> mediaFormat) = 0;
-  virtual bool writeFrame(int streamIndex, void* frame) = 0;
+  virtual bool writeFrame(int streamIndex, void* packet) = 0;
+  virtual bool writeFrame(int streamIndex, std::shared_ptr<EncodePacket> packet) = 0;
   virtual void refreshExtraData(int streamIndex,
                                 const std::vector<std::shared_ptr<ByteData>>& header) = 0;
   virtual void collectErrorMsgs(std::vector<std::string>* const toMsgs) = 0;

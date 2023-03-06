@@ -10,7 +10,7 @@ OPTIONS="--disable-all --disable-everything --disable-autodetect --enable-small 
          --enable-demuxer=aac,mp3,wav --enable-muxer=mov --enable-muxer=mp4 \
          --enable-decoder=h264,mpeg4 --enable-encoder=h264,mpeg4 \
          --enable-decoder=hevc --enable-demuxer=mov --enable-protocol=file --enable-bsf=h264_mp4toannexb \
-         --enable-bsf=hevc_mp4toannexb --enable-libx264 --enable-encoder=libx264 --enable-gpl"
+         --enable-bsf=hevc_mp4toannexb --enable-gpl"
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
   OPTIONS="${OPTIONS} --disable-debug"
@@ -24,43 +24,43 @@ build_arch() {
   make clean
 }
 
-X264_INCLUDE=$VENDOR_DIR/libx264/ios/include
+#X264_INCLUDE=$VENDOR_DIR/libx264/ios/include
 
 
 rm -rf $BUILD_DIR
 # build x86_64
 CC="xcrun -sdk iphonesimulator clang"
-X264_LIB=$VENDOR_DIR/libx264/ios/x64
+#X264_LIB=$VENDOR_DIR/libx264/ios/x64
 ARCH="x86_64"
-CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
+LDFLAGS="-arch $ARCH"
 OUT=$ARCH
 build_arch
 
 # build armv7
 CC="xcrun -sdk iphoneos clang"
-X264_LIB=$VENDOR_DIR/libx264/ios/arm
+#X264_LIB=$VENDOR_DIR/libx264/ios/arm
 ARCH="armv7"
-CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -arch $ARCH"
+LDFLAGS="-arch $ARCH"
 OUT=$ARCH
 build_arch
 
 # build arm64
 CC="xcrun -sdk iphoneos clang"
 ARCH="arm64"
-X264_LIB=$VENDOR_DIR/libx264/ios/arm64
-CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+#X264_LIB=$VENDOR_DIR/libx264/ios/arm64
+CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
+LDFLAGS="-arch $ARCH"
 OUT=$ARCH
 build_arch
 
 # build arm64-simulator
 CC="xcrun -sdk iphonesimulator clang"
 ARCH="arm64"
-X264_LIB=$VENDOR_DIR/libx264/ios/arm64-simulator
-CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+#X264_LIB=$VENDOR_DIR/libx264/ios/arm64-simulator
+CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
+LDFLAGS="-arch $ARCH"
 OUT="arm64-simulator"
 build_arch
 

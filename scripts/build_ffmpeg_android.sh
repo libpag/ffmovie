@@ -9,7 +9,7 @@ OPTIONS="--disable-all --disable-everything --disable-autodetect --enable-small 
          --enable-demuxer=aac,mp3,wav --enable-muxer=mov --enable-muxer=mp4 \
          --enable-decoder=h264,mpeg4 --enable-encoder=h264,mpeg4 \
          --enable-decoder=hevc --enable-demuxer=mov --enable-protocol=file --enable-bsf=h264_mp4toannexb \
-         --enable-bsf=hevc_mp4toannexb --enable-jni --enable-libx264 --enable-encoder=libx264 \
+         --enable-bsf=hevc_mp4toannexb --enable-jni \
          --enable-gpl"
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
@@ -59,8 +59,8 @@ ARCH="arm64"
 CPU="armv8-a"
 CROSS_PREFIX=$TOOLCHAIN/bin/aarch64-linux-android-
 CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
-CFLAGS="-w -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+CFLAGS="-w  -arch $ARCH"
+LDFLAGS=" -arch $ARCH"
 build_arch
 
 # build armv7
@@ -70,8 +70,8 @@ ARCH="arm"
 CPU="armv7-a"
 CROSS_PREFIX=$TOOLCHAIN/bin/arm-linux-androideabi-
 CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang
-CFLAGS="-w -I$X264_INCLUDE -arch $ARCH"
-LDFLAGS="-L$X264_LIB -arch $ARCH"
+CFLAGS="-w  -arch $ARCH"
+LDFLAGS=" -arch $ARCH"
 build_arch
 
 cp -r $BUILD_DIR/arm64/include/. $BUILD_DIR/include

@@ -316,7 +316,7 @@ bool FFmpegVideoDemuxer::open(const std::string& filePath) {
   if (avformat_find_stream_info(formatContext, nullptr) < 0) {
     return false;
   }
-  auto numStreams = static_cast<int>(formatContext->nb_streams - 1);
+  auto numStreams = static_cast<int>(formatContext->nb_streams);
   AVStream* avStream = nullptr;
   const AVBitStreamFilter* absFilter = nullptr;
   for (int index = 0; index < numStreams; index++) {

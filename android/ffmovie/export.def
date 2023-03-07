@@ -4,6 +4,7 @@
         alc*;
         JNI_OnLoad*;
         *ffmovie*;
+        *ffavc*;
     local:
         *;
 };

@@ -212,6 +212,16 @@ struct FFMOVIE_API AudioExportConfig {
 #define VIDEO_TRACK 1
 #define AUDIO_TRACK 0
 
+enum class FFMOVIE_API DecoderResult {
+  Success = 0,
+
+  TryAgainLater = -1,
+
+  Error = -2,
+
+  EndOfStream = - 3
+};
+
 class FFMOVIE_API MediaFormat {
  public:
   MediaFormat() = default;
@@ -271,11 +281,11 @@ class FFMOVIE_API FFMediaDecoder {
  public:
   virtual ~FFMediaDecoder() = default;
 
-  virtual pag::DecoderResult onSendBytes(void* bytes, size_t length, int64_t timestamp) = 0;
+  virtual DecoderResult onSendBytes(void* bytes, size_t length, int64_t timestamp) = 0;
 
-  virtual pag::DecoderResult onDecodeFrame() = 0;
+  virtual DecoderResult onDecodeFrame() = 0;
 
-  virtual pag::DecoderResult onEndOfStream() = 0;
+  virtual DecoderResult onEndOfStream() = 0;
 
   virtual void onFlush() = 0;
 };

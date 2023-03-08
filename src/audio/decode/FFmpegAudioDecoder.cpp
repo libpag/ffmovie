@@ -38,34 +38,34 @@ FFmpegAudioDecoder::~FFmpegAudioDecoder() {
   av_packet_free(&packet);
 }
 
-pag::DecoderResult FFmpegAudioDecoder::onEndOfStream() {
+DecoderResult FFmpegAudioDecoder::onEndOfStream() {
   return onSendBytes(nullptr, 0, -1);
 }
 
-pag::DecoderResult FFmpegAudioDecoder::onSendBytes(void* bytes, size_t length, int64_t time) {
+DecoderResult FFmpegAudioDecoder::onSendBytes(void* bytes, size_t length, int64_t time) {
   packet->data = static_cast<uint8_t*>(bytes);
   packet->size = static_cast<int>(length);
   packet->pts = time;
   int result = avcodec_send_packet(avCodecContext, packet);
   if (result >= 0 || result == AVERROR_EOF) {
-    return pag::DecoderResult::Success;
+    return DecoderResult::Success;
   } else if (result == AVERROR(EAGAIN)) {
-    return pag::DecoderResult::TryAgainLater;
+    return DecoderResult::TryAgainLater;
   } else {
-    return pag::DecoderResult::Error;
+    return DecoderResult::Error;
   }
 }
 
-pag::DecoderResult FFmpegAudioDecoder::onDecodeFrame() {
+DecoderResult FFmpegAudioDecoder::onDecodeFrame() {
   auto result = avcodec_receive_frame(avCodecContext, frame);
   if (result == 0 && frame->data[0] != nullptr) {
-    return pag::DecoderResult::Success;
+    return DecoderResult::Success;
   } else if (result == AVERROR(EAGAIN)) {
-    return pag::DecoderResult::TryAgainLater;
+    return DecoderResult::TryAgainLater;
   } else if (result == AVERROR_EOF) {
-    return pag::DecoderResult::Success;
+    return DecoderResult::EndOfStream;
   } else {
-    return pag::DecoderResult::Error;
+    return DecoderResult::Error;
   }
 }
 

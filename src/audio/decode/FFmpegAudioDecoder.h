@@ -40,11 +40,11 @@ class FFmpegAudioDecoder : public FFAudioDecoder {
 
   bool onConfigure(FFMediaDemuxer* demuxer, std::shared_ptr<AudioOutputConfig> config);
 
-  pag::DecoderResult onEndOfStream() override;
+  DecoderResult onEndOfStream() override;
 
-  pag::DecoderResult onSendBytes(void* bytes, size_t length, int64_t time) override;
+  DecoderResult onSendBytes(void* bytes, size_t length, int64_t time) override;
 
-  pag::DecoderResult onDecodeFrame() override;
+  DecoderResult onDecodeFrame() override;
 
   void onFlush() override;
 

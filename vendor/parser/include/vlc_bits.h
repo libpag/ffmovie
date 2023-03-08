@@ -1,6 +1,12 @@
 #ifndef vlc_bits_h
 #define vlc_bits_h
 
+#if defined(_WIN64)
+typedef long int ssize_t;
+#elif defined(WIN32)
+typedef int ssize_t;
+#endif
+
 typedef struct bs_s bs_t;
 
 typedef struct {

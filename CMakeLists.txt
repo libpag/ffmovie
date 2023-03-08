@@ -108,7 +108,12 @@ elseif (ANDROID)
     list(APPEND FFMOVIE_VENDOR_LIBS ${LOG_LIB})
     find_library(Z_LIB NAMES z)
     list(APPEND FFMOVIE_PLATFORM_SHARED_LIBS ${Z_LIB})
-
+elseif (WIN32)
+    add_compile_options("/utf-8")
+    find_library(WS_LIB NAMES ws2_32)
+    list(APPEND FFMOVIE_PLATFORM_SHARED_LIBS ${WS_LIB})
+    find_library(BCRYPT_LIB NAMES bcrypt)
+    list(APPEND FFMOVIE_PLATFORM_SHARED_LIBS ${BCRYPT_LIB})
 endif ()
 
 if (FFMOVIE_BUILD_STATIC)

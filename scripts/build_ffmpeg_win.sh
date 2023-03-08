@@ -6,7 +6,7 @@ OPTIONS=" --disable-all --disable-everything --disable-autodetect --enable-avcod
           --enable-decoder=aac,mp3,pcm_s16le,pcm_s16be,gif,pcm_mulaw  \
           --enable-demuxer=aac,mp3,wav,mov --enable-decoder=h264,mpeg4,hevc --enable-bsf=h264_mp4toannexb --enable-protocol=file \
           --enable-bsf=hevc_mp4toannexb \
-          --disable-shared --enable-static --disable-doc --enable-shared"
+          --disable-shared --enable-static --disable-doc"
 
 if [[ ${VENDOR_BUILD_TYPE} == "Debug" ]]; then
   OPTIONS="${OPTIONS} --enable-debug"
@@ -18,15 +18,6 @@ build_arch() {
   make -j12
   make install
   make clean
-}
-
-rename() {
-  for i in `ls`
-  do
-    if [ "${i##*.}"x = "a"x ]
-      then mv $i "${i}.lib"
-    fi
-  done
 }
 
 cd ${SOURCE_DIR}
@@ -55,7 +46,7 @@ X264_LIB=$VENDOR_DIR/libx264/win/x64
 
 TARGET_OS="win64"
 ARCH="x86_64"
-PREFIX_DIR="${BUILD_DIR}/$ARCH"
+PREFIX_DIR="${BUILD_DIR}/x64"
 build_arch
 
 # copy all libraries.

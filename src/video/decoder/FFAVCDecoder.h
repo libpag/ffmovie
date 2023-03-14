@@ -54,7 +54,7 @@ class FFAVCDecoder : public pag::SoftwareDecoder {
   AVFrame* frame = nullptr;
   AVPacket* packet = nullptr;
 
-  bool openDecoder(uint8_t* headerData, size_t headerLength);
+  bool openDecoder(AVCodecID codecID, uint8_t* headerData, size_t headerLength);
   void closeDecoder();
 };
 

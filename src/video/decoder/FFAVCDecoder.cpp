@@ -17,16 +17,20 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FFAVCDecoder.h"
+#include "utils/FFmpegUtils.h"
 
 namespace ffavc {
 
 #define I420_PLANE_COUNT 3
 
-FFAVCDecoder::~FFAVCDecoder() { closeDecoder(); }
+FFAVCDecoder::~FFAVCDecoder() {
+  closeDecoder();
+}
 
 bool FFAVCDecoder::onConfigure(const std::vector<pag::HeaderData>& headers, std::string mimeType,
                                int, int) {
-  if (mimeType != "video/avc") {
+  auto codecID = ffmovie::MineStringToVideoAVCodecID(mimeType);
+  if (codecID != AV_CODEC_ID_H264 && codecID != AV_CODEC_ID_H265) {
     return false;
   }
   size_t headerLength = 0;
@@ -39,13 +43,13 @@ bool FFAVCDecoder::onConfigure(const std::vector<pag::HeaderData>& headers, std:
     memcpy(headerData + pos, header.data, header.length);
     pos += header.length;
   }
-  auto isValid = openDecoder(headerData, headerLength);
+  auto isValid = openDecoder(codecID, headerData, headerLength);
   delete[] headerData;
   return isValid;
 }
 
-bool FFAVCDecoder::openDecoder(uint8_t* headerData, size_t headerLength) {
-  codec = avcodec_find_decoder(AVCodecID::AV_CODEC_ID_H264);
+bool FFAVCDecoder::openDecoder(AVCodecID codecID, uint8_t* headerData, size_t headerLength) {
+  codec = avcodec_find_decoder(codecID);
   if (!codec) {
     return false;
   }
@@ -57,7 +61,9 @@ bool FFAVCDecoder::openDecoder(uint8_t* headerData, size_t headerLength) {
   parameters.extradata = headerData;
   parameters.extradata_size = static_cast<int>(headerLength);
   // h264 解码需要设置 video_delay，否则含有B帧视频解码可能会出第一个B帧无法解码成功。
-  parameters.video_delay = 1;
+  if (codec->id == AVCodecID::AV_CODEC_ID_H264) {
+    parameters.video_delay = 1;
+  }
   if ((avcodec_parameters_to_context(context, &parameters)) < 0) {
     return false;
   }
@@ -112,9 +118,13 @@ pag::DecoderResult FFAVCDecoder::onDecodeFrame() {
   }
 }
 
-pag::DecoderResult FFAVCDecoder::onEndOfStream() { return onSendBytes(nullptr, 0, -1); }
+pag::DecoderResult FFAVCDecoder::onEndOfStream() {
+  return onSendBytes(nullptr, 0, -1);
+}
 
-void FFAVCDecoder::onFlush() { avcodec_flush_buffers(context); }
+void FFAVCDecoder::onFlush() {
+  avcodec_flush_buffers(context);
+}
 
 std::unique_ptr<pag::YUVBuffer> FFAVCDecoder::onRenderFrame() {
   auto buffer = std::make_unique<pag::YUVBuffer>();

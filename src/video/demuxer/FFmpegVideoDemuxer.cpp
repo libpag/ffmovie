@@ -489,12 +489,14 @@ void SetH265Headers(uint8_t* extradata, int extradataSize,
 }
 
 std::vector<std::shared_ptr<ByteData>> FFmpegVideoDemuxer::createHeaders(AVStream* avStream) {
-  AVPacket pkt;
-  av_new_packet(&pkt, 0);
-
-  int size = av_read_frame(formatContext, &pkt);
-  if (size < 0 || pkt.size < 0) {
-    av_packet_unref(&pkt);
+  AVPacket* pkt = av_packet_alloc();
+  if (pkt == nullptr) {
+    return {};
+  }
+  av_new_packet(pkt, 0);
+  int size = av_read_frame(formatContext, pkt);
+  if (size < 0 || pkt->size < 0) {
+    av_packet_free(&pkt);
     return {};
   }
 
@@ -522,7 +524,7 @@ std::vector<std::shared_ptr<ByteData>> FFmpegVideoDemuxer::createHeaders(AVStrea
     SetH265Headers(extradata, extradataSize, headers, spsSize, startCodeVPSIndex, startCodeSPSIndex,
                    startCodeFPPSIndex, startCodeRPPSIndex, naluType);
   }
-  av_packet_unref(&pkt);
+  av_packet_free(&pkt);
   return headers;
 }
 }  // namespace ffmovie

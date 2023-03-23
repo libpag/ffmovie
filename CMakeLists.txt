@@ -123,3 +123,9 @@ else ()
 endif ()
 target_include_directories(ffmovie PUBLIC ${FFMOVIE_INCLUDES})
 target_link_libraries(ffmovie ${FFMOVIE_VENDOR_LIBS} ${FFMOVIE_PLATFORM_SHARED_LIBS})
+
+# 添加可执行文件 target
+add_executable(FFMovieBin bin/main.cpp)
+target_link_libraries(FFMovieBin ffmovie)
+
+

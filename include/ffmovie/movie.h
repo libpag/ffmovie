@@ -249,6 +249,7 @@ class FFMOVIE_API MediaFormat {
 
 class FFMOVIE_API FFMediaDemuxer {
  public:
+  static std::vector<std::string> SupportDemuxers();
   virtual ~FFMediaDemuxer() = default;
   virtual bool advance() = 0;
   virtual bool seekTo(int64_t timestamp) = 0;
@@ -279,6 +280,8 @@ class FFMOVIE_API FFVideoDemuxer : public FFMediaDemuxer {
 
 class FFMOVIE_API FFMediaDecoder {
  public:
+  static std::vector<std::string> SupportDecoders();
+
   virtual ~FFMediaDecoder() = default;
 
   virtual DecoderResult onSendBytes(void* bytes, size_t length, int64_t timestamp) = 0;

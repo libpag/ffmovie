@@ -20,6 +20,29 @@
 #include "ffmovie/movie.h"
 
 namespace ffmovie {
+
+std::vector<std::string> FFMediaDemuxer::SupportDemuxers() {
+  // 打印ffmpeg配置
+  const AVInputFormat* fmt = NULL;
+  void* demuxerIndex = 0;
+  std::vector<std::string> names;
+  while ((fmt = av_demuxer_iterate(&demuxerIndex))) {
+    names.emplace_back(fmt->name);
+  }
+  return names;
+}
+
+std::vector<std::string> FFMediaDecoder::SupportDecoders() {
+  // 打印ffmpeg配置
+  void* codecIndex = 0;
+  std::vector<std::string> names;
+  const AVCodec* codec = NULL;
+  while ((codec = av_codec_iterate(&codecIndex))) {
+    names.emplace_back(codec->name);
+  }
+  return names;
+}
+
 std::string AVCodecIDToStringVideo(AVCodecID codecId) {
   std::string codecIDString;
   switch (codecId) {

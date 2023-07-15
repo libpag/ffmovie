@@ -6,3 +6,4 @@ cmake-build-release
 third_party
 vendor_tools
 
+/third_party/

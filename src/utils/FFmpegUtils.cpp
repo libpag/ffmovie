@@ -18,19 +18,8 @@
 
 #include "FFmpegUtils.h"
 #include "ffmovie/movie.h"
-extern "C" {
-#include <libavutil/log.h>
-}
 
 namespace ffmovie {
-
-const char* tav_default_item_name(void* ptr) {
-  return av_default_item_name(ptr);
-}
-
-void tav_log_set_callback(void (*callback)(void*, int, const char*, va_list)) {
-  av_log_set_callback(callback);
-}
 
 std::vector<std::string> FFMediaDemuxer::SupportDemuxers() {
   // 打印ffmpeg配置

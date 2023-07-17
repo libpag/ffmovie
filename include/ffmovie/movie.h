@@ -356,8 +356,4 @@ class FFMOVIE_API FFVideoEncoder : public FFEncoder {
                                   int rowBytes, int64_t pts) = 0;
 };
 
-void tav_log_set_callback(void (*callback)(void*, int, const char*, va_list));
-
-const char* tav_default_item_name(void* ptr);
-
 }  // namespace ffmovie

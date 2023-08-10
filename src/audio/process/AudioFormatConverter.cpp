@@ -39,8 +39,10 @@ SampleData AudioFormatConverter::convert(AVFrame* frame) {
   int nbSample =
       static_cast<int>(frame->nb_samples * pcmOutputConfig->sampleRate / frame->sample_rate) + 256;
   if (nbSample > outputSamples) {
-    av_freep(&pConvertBuff);
-    pConvertBuff = nullptr;
+    if (pConvertBuff != nullptr) {
+      av_freep(&pConvertBuff);
+      pConvertBuff = nullptr;
+    }
     outputSamples = nbSample;
   }
   if (pConvertBuff == nullptr) {
@@ -49,7 +51,7 @@ SampleData AudioFormatConverter::convert(AVFrame* frame) {
       return {};
     }
   }
-  if (IsSampleConfig(*preFramePCMOutputConfig, *frame)) {
+  if (!IsSampleConfig(*preFramePCMOutputConfig, *frame) && pSwrContext != nullptr) {
     swr_free(&pSwrContext);
     pSwrContext = nullptr;
   }

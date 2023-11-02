@@ -6,11 +6,10 @@ VENDOR_DIR=${SOURCE_DIR}/../../vendor
 
 OPTIONS="--disable-all --disable-everything --disable-autodetect --enable-small \
          --enable-avcodec --enable-avformat --enable-swresample --enable-swscale \
-         --enable-encoder=aac,mp3 --enable-decoder=aac,mp3,pcm_s16le,pcm_s16be,pcm_f32be,pcm_f32le --enable-muxer=aac,mp3 \
-         --enable-demuxer=aac,mp3,wav --enable-muxer=mov --enable-muxer=mp4 \
-         --enable-decoder=h264,mpeg4 --enable-encoder=h264,mpeg4 \
-         --enable-decoder=hevc --enable-demuxer=mov --enable-protocol=file --enable-bsf=h264_mp4toannexb \
-         --enable-bsf=hevc_mp4toannexb "
+         --enable-decoder=aac,mp3,pcm_s16le,pcm_s16be,pcm_f32be,pcm_f32le  \
+         --enable-demuxer=aac,mp3,wav --enable-demuxer=mov \
+         --enable-protocol=file --enable-bsf=h264_mp4toannexb \
+         --enable-bsf=hevc_mp4toannexb"
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
   OPTIONS="${OPTIONS} --disable-debug"

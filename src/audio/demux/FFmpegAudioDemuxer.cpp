@@ -130,6 +130,13 @@ int readPacket(void* opaque, uint8_t* buf, int bufSize) {
 }
 
 int64_t seekInBuffer(void* opaque, int64_t offset, int whence) {
+  //   这个方法在Android 11上开启了Tagged Pointers的情况下会导致seek失败；
+  //   https://source.android.google.cn/docs/security/test/tagged-pointers
+  //   查阅ffmpeg源码 aviobuf.c,检索 s->seek（本函数）的使用逻辑，结论如下：
+  //   当whence为AVSEEK_SIZE时，返回值作为size使用；
+  //   当whence为SEEK_SET时，返回值用于判断是否大于0，即成功与否、是否到结尾；
+  //   当whence为SEEK_CUR时，返回值用于设置给sample的pos字段，即内存位置；
+  //   so，本方法的SEEK_SET分支，应当根据位置是否到结尾，返回成功与否
   auto bufferData = static_cast<FFmpegAudioDemuxer::BufferData*>(opaque);
   int64_t ret = -1;
   switch (whence) {
@@ -139,7 +146,10 @@ int64_t seekInBuffer(void* opaque, int64_t offset, int whence) {
     case SEEK_SET:
       bufferData->ptr = bufferData->originPtr + offset;
       bufferData->size = bufferData->fileSize - offset;
-      ret = reinterpret_cast<int64_t>(bufferData->ptr);
+      // 判断是否到结尾，返回 1 或者 -1；
+      ret = (offset >= 0 && offset <= static_cast<int64_t>(bufferData->fileSize)) ? 1 : -1;
+      //      原逻辑如下，在Android 11上开启标记指针时，由于指针是负数，会导致seek失败
+      //      ret = reinterpret_cast<int64_t>(bufferData->ptr);
       break;
     default:
       break;

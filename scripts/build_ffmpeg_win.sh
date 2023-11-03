@@ -26,9 +26,6 @@ rm -rf $BUILD_DIR
 
 echo "-------------- build arch x86 -----------------"
 
-X264_INCLUDE=$VENDOR_DIR/libx264/win/include
-X264_LIB=$VENDOR_DIR/libx264/win/x86
-
 TARGET_OS="win32"
 ARCH="x86"
 PREFIX_DIR="${BUILD_DIR}/$ARCH"
@@ -40,10 +37,6 @@ rename
 cd ${SOURCE_DIR}
 
 echo "-------------- build arch x64 -----------------"
-
-X264_INCLUDE=$VENDOR_DIR/libx264/win/include
-X264_LIB=$VENDOR_DIR/libx264/win/x64
-
 TARGET_OS="win64"
 ARCH="x86_64"
 PREFIX_DIR="${BUILD_DIR}/x64"

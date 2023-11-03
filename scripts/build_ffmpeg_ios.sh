@@ -10,7 +10,7 @@ OPTIONS="--disable-all --disable-everything --disable-autodetect --enable-small 
          --enable-demuxer=aac,mp3,wav --enable-muxer=mov --enable-muxer=mp4 \
          --enable-decoder=h264,mpeg4 --enable-encoder=h264,mpeg4 \
          --enable-decoder=hevc --enable-demuxer=mov --enable-protocol=file --enable-bsf=h264_mp4toannexb \
-         --enable-bsf=hevc_mp4toannexb --enable-gpl"
+         --enable-bsf=hevc_mp4toannexb "
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
   OPTIONS="${OPTIONS} --disable-debug"

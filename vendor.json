@@ -1,19 +1,12 @@
 {
-  "source": "..",
-  "out": "out",
+  "source": "third_party",
+  "out": "third_party/out",
   "vendors": [
     {
-      "name": "ffmovie",
+      "name": "libyuv",
       "cmake": {
         "targets": [
-          "ffmovie"
-        ],
-        "platforms": [
-          "ios",
-          "android",
-          "mac",
-          "win",
-          "linux"
+          "yuv"
         ]
       }
     }

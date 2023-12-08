@@ -24,13 +24,9 @@ build_arch() {
   make clean
 }
 
-#X264_INCLUDE=$VENDOR_DIR/libx264/ios/include
-
-
 rm -rf $BUILD_DIR
 # build x86_64
 CC="xcrun -sdk iphonesimulator clang"
-#X264_LIB=$VENDOR_DIR/libx264/ios/x64
 ARCH="x86_64"
 CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
 LDFLAGS="-arch $ARCH"
@@ -39,7 +35,6 @@ build_arch
 
 # build armv7
 CC="xcrun -sdk iphoneos clang"
-#X264_LIB=$VENDOR_DIR/libx264/ios/arm
 ARCH="armv7"
 CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -arch $ARCH"
 LDFLAGS="-arch $ARCH"
@@ -49,7 +44,6 @@ build_arch
 # build arm64
 CC="xcrun -sdk iphoneos clang"
 ARCH="arm64"
-#X264_LIB=$VENDOR_DIR/libx264/ios/arm64
 CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
 LDFLAGS="-arch $ARCH"
 OUT=$ARCH
@@ -58,7 +52,6 @@ build_arch
 # build arm64-simulator
 CC="xcrun -sdk iphonesimulator clang"
 ARCH="arm64"
-#X264_LIB=$VENDOR_DIR/libx264/ios/arm64-simulator
 CFLAGS="-w -mios-simulator-version-min=${IPHONEOS_DEPLOYMENT_TARGET}  -arch $ARCH"
 LDFLAGS="-arch $ARCH"
 OUT="arm64-simulator"

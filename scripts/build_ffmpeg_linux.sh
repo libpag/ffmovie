@@ -28,31 +28,24 @@ OPTIONS="--disable-doc \
         --enable-decoder=hevc \
         --enable-demuxer=mov \
         --enable-encoder=h264,mpeg4 \
-        --enable-libx264 \
-        --enable-encoder=libx264 \
         --enable-protocol=file \
         --enable-x86asm \
         --enable-bsf=h264_mp4toannexb \
         --enable-bsf=hevc_mp4toannexb \
-        --enable-libx264 \
         --enable-libopencore-amrwb \
         --enable-libopencore-amrnb \
         --enable-libvpx --enable-decoder=libvpx_vp8 --enable-decoder=libvpx_vp9 --enable-decoder=vp8 --enable-decoder=vp9 --enable-parser=vp8 --enable-parser=vp9 \
-        --enable-demuxer=flv,matroska,webm_dash_manifest --enable-demuxer=ogg,avi --enable-decoder=vorbis,opus \
-        --enable-encoder=libx264"
+        --enable-demuxer=flv,matroska,webm_dash_manifest --enable-demuxer=ogg,avi --enable-decoder=vorbis,opus
 
 if [[ ${VENDOR_BUILD_TYPE} != "Debug" ]]; then
   OPTIONS="${OPTIONS} --disable-debug"
 fi
 
-X264_INCLUDE=$VENDOR_DIR/libx264/linux/include
-X264_LIB=$VENDOR_DIR/libx264/linux/x64
-
 VPX_INCLUDE=$VENDOR_DIR/libvpx/linux/include
 VPX_LIB=$VENDOR_DIR/libvpx/linux/x64
 
 rm -rf $BUILD_DIR
-./configure $OPTIONS --extra-cflags="-I/usr/local/include -I$X264_INCLUDE -I$VPX_INCLUDE" --extra-libs=-ldl --extra-ldflags="-L/usr/local/lib -L$X264_LIB -L$VPX_LIB" --prefix=$BUILD_DIR/x64
+./configure $OPTIONS --extra-cflags="-I/usr/local/include -I$VPX_INCLUDE" --extra-libs=-ldl --extra-ldflags="-L/usr/local/lib -L$VPX_LIB" --prefix=$BUILD_DIR/x64
 make -j12 >/dev/null
 make install >/dev/null
 make clean

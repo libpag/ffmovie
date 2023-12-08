@@ -52,8 +52,6 @@ build_arch() {
 
 rm -rf $BUILD_DIR
 # build arm64
-X264_INCLUDE=$VENDOR_DIR/libx264/android/include
-X264_LIB=$VENDOR_DIR/libx264/android/arm64
 ARCH="arm64"
 CPU="armv8-a"
 CROSS_PREFIX=$TOOLCHAIN/bin/aarch64-linux-android-
@@ -63,12 +61,19 @@ LDFLAGS=" -arch $ARCH"
 build_arch
 
 # build armv7
-X264_INCLUDE=$VENDOR_DIR/libx264/android/include
-X264_LIB=$VENDOR_DIR/libx264/android/arm
 ARCH="arm"
 CPU="armv7-a"
 CROSS_PREFIX=$TOOLCHAIN/bin/arm-linux-androideabi-
 CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang
+CFLAGS="-w  -arch $ARCH"
+LDFLAGS=" -arch $ARCH"
+build_arch
+
+# build x86_64
+ARCH="x86_64"
+CPU="x86_64"
+CROSS_PREFIX=$TOOLCHAIN/bin/x86_64-linux-android-
+CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang
 CFLAGS="-w  -arch $ARCH"
 LDFLAGS=" -arch $ARCH"
 build_arch

@@ -34,12 +34,12 @@ OUT=$ARCH
 build_arch
 
 # build armv7
-CC="xcrun -sdk iphoneos clang"
-ARCH="armv7"
-CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -arch $ARCH"
-LDFLAGS="-arch $ARCH"
-OUT=$ARCH
-build_arch
+#CC="xcrun -sdk iphoneos clang"
+#ARCH="armv7"
+#CFLAGS="-w -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET} -arch $ARCH"
+#LDFLAGS="-arch $ARCH"
+#OUT=$ARCH
+#build_arch
 
 # build arm64
 CC="xcrun -sdk iphoneos clang"

@@ -67,7 +67,7 @@ build_arch
 
 # build x86_64
 ARCH="x86_64"
-CPU="x86_64"
+CPU="x86-64"
 CROSS_PREFIX=$TOOLCHAIN/bin/llvm-
 CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang
 build_arch

@@ -3,6 +3,4 @@ out
 vendor/ffmpeg
 cmake-build-debug
 cmake-build-release
-third_party
 vendor_tools
-

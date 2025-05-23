@@ -2,3 +2,9 @@
 	path = third_party/ffmpeg
 	url = https://github.com/FFmpeg/FFmpeg.git
 	branch = release/7.0
+[submodule "third_party/libyuv"]
+	path = third_party/libyuv
+	url = https://chromium.googlesource.com/libyuv/libyuv
+[submodule "third_party/vendor_tool"]
+	path = third_party/vendor_tool
+	url = https://github.com/libpag/vendor_tools.git

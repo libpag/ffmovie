@@ -79,6 +79,6 @@ inline int64_t SampleTimeToLength(int64_t time, PCMOutputConfig* config) {
 
 inline bool IsSampleConfig(const PCMOutputConfig& left, const AVFrame& right) {
   return left.sampleRate == right.sample_rate && left.format == right.format &&
-         left.channels == right.channels && left.channelLayout == right.channel_layout;
+         left.channels == right.ch_layout.nb_channels && right.ch_layout.order == AV_CHANNEL_ORDER_NATIVE && left.channelLayout == right.ch_layout.u.mask;
 }
 }  // namespace ffmovie

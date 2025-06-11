@@ -28,7 +28,7 @@ std::unique_ptr<FFVideoEncoder> FFVideoEncoder::Make(const VideoExportConfig& co
 
 FFmpegVideoEncoder::~FFmpegVideoEncoder() {
   if (codecContext) {
-    avcodec_close(codecContext);
+    // avcodec_close(codecContext);
     avcodec_free_context(&codecContext);
   }
 
@@ -163,6 +163,7 @@ std::shared_ptr<MediaFormat> FFmpegVideoEncoder::getMediaFormat() {
   trackFormat->setInteger(KEY_TIME_BASE_NUM, codecContext->time_base.num);
   trackFormat->setInteger(KEY_TIME_BASE_DEN, codecContext->time_base.den);
   trackFormat->setInteger(KEY_VIDEO_BITRATE, codecContext->bit_rate);
+  trackFormat->setCodecContext(codecContext);
 
   std::vector<std::shared_ptr<ByteData>> headers{};
   headers.push_back(ByteData::MakeCopy(codecContext->extradata, codecContext->extradata_size));

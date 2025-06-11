@@ -26,6 +26,7 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
+#include <libavcodec/avcodec.h>
 
 #ifdef __cplusplus
 }
@@ -69,7 +70,7 @@ class FFmpegAudioEncoder : public FFAudioEncoder {
   AudioExportConfig audioEncoderConfig;
   AVCodecID codecID = AVCodecID::AV_CODEC_ID_AAC;
   AVCodecContext* codecContext = nullptr;
-  AVCodec* avCodec = nullptr;
+  const AVCodec* avCodec = nullptr;
   struct SwrContext* swrContext = nullptr;
   PCMOutputConfig lastAudioFrameConfig;
   int lastAudioFormat = AV_SAMPLE_FMT_NONE;

@@ -18,6 +18,9 @@
 
 #include "FFmpegAudioEncoder.h"
 #include "utils/StringUtils.h"
+#include <libavcodec/avcodec.h>
+
+#include <memory>
 
 namespace ffmovie {
 std::unique_ptr<FFAudioEncoder> FFAudioEncoder::Make(const AudioExportConfig& config) {
@@ -84,7 +87,7 @@ CodingResult FFmpegAudioEncoder::onSendData(uint8_t* data, int64_t length, int s
     return CodingResult::CodingError;
   }
 
-  needResample = (srcFrame->channels != codecContext->channels) ||
+  needResample = (srcFrame->ch_layout.nb_channels != codecContext->ch_layout.nb_channels) ||
                  (srcFrame->sample_rate != codecContext->sample_rate) ||
                  (srcFrame->format != codecContext->sample_fmt);
   if (needResample && !initResampleContext(srcFrame)) {
@@ -199,27 +202,25 @@ void FFmpegAudioEncoder::initEncodeSampleRate() {
 }
 
 void FFmpegAudioEncoder::initEncodeChannelLayout() {
-  codecContext->channels = audioEncoderConfig.channels;
-  codecContext->channel_layout = av_get_default_channel_layout(audioEncoderConfig.channels);
-  if (!avCodec->channel_layouts || avCodec->channel_layouts[0] == 0) {
+  codecContext->ch_layout.nb_channels = audioEncoderConfig.channels;
+  av_channel_layout_default(&codecContext->ch_layout, audioEncoderConfig.channels);
+  if (!avCodec->ch_layouts || avCodec->ch_layouts[0].nb_channels == 0 || avCodec->ch_layouts[0].u.mask == 0) {
     msgs.emplace_back("FFmpegAudioEncoder: no supported channel layout");
     return;
   }
-
-  codecContext->channel_layout = avCodec->channel_layouts[0];
-  for (int index = 0; avCodec->channel_layouts[index] > 0; index++) {
-    if (static_cast<int>(avCodec->channel_layouts[index]) ==
-        av_get_channel_layout_nb_channels(audioEncoderConfig.channels)) {
-      codecContext->channel_layout = avCodec->channel_layouts[index];
+  AVChannelLayout avChannelLayout = {};
+  av_channel_layout_default(&avChannelLayout, audioEncoderConfig.channels);
+  codecContext->ch_layout = avCodec->ch_layouts[0];
+  for (int index = 0; avCodec->ch_layouts[index].nb_channels > 0; index++) {
+    if (avCodec->ch_layouts[index].u.mask == avChannelLayout.u.mask) {
+      codecContext->ch_layout = avCodec->ch_layouts[index];
       break;
     }
   }
-
-  codecContext->channels = av_get_channel_layout_nb_channels(codecContext->channel_layout);
 }
 
 bool FFmpegAudioEncoder::initResampleContext(AVFrame* avFrame) {
-  bool isSameConfigWithLastAudioFrame = (lastAudioFrameConfig.channels == avFrame->channels) &&
+  bool isSameConfigWithLastAudioFrame = (lastAudioFrameConfig.channels == avFrame->ch_layout.nb_channels) &&
                                         (lastAudioFrameConfig.sampleRate == avFrame->sample_rate) &&
                                         (lastAudioFormat == avFrame->format);
   if (isSameConfigWithLastAudioFrame && swrContext) {
@@ -235,11 +236,11 @@ bool FFmpegAudioEncoder::initResampleContext(AVFrame* avFrame) {
     return false;
   }
 
-  av_opt_set_int(swrContext, "in_channel_count", avFrame->channels, 0);
+  av_opt_set_int(swrContext, "in_channel_count", avFrame->ch_layout.nb_channels, 0);
   av_opt_set_int(swrContext, "in_sample_rate", avFrame->sample_rate, 0);
   av_opt_set_sample_fmt(swrContext, "in_sample_fmt", static_cast<AVSampleFormat>(avFrame->format),
                         0);
-  av_opt_set_int(swrContext, "out_channel_count", codecContext->channels, 0);
+  av_opt_set_int(swrContext, "out_channel_count", codecContext->ch_layout.nb_channels, 0);
   av_opt_set_int(swrContext, "out_sample_rate", codecContext->sample_rate, 0);
   av_opt_set_sample_fmt(swrContext, "out_sample_fmt", codecContext->sample_fmt, 0);
 
@@ -254,7 +255,7 @@ bool FFmpegAudioEncoder::initResampleContext(AVFrame* avFrame) {
 
   lastAudioFormat = avFrame->format;
   lastAudioFrameConfig.sampleRate = avFrame->sample_rate;
-  lastAudioFrameConfig.channels = avFrame->channels;
+  lastAudioFrameConfig.channels = avFrame->ch_layout.nb_channels;
   return true;
 }
 
@@ -269,9 +270,9 @@ bool FFmpegAudioEncoder::createFrame() {
                           ? codecContext->frame_size
                           : AUDIO_ENCODE_DEFAULT_SAMPLES;
   frame->format = codecContext->sample_fmt;
-  frame->channel_layout = codecContext->channel_layout;
+  frame->ch_layout = codecContext->ch_layout;
   frame->sample_rate = codecContext->sample_rate;
-  frame->channels = codecContext->channels;
+  frame->ch_layout.nb_channels = codecContext->ch_layout.nb_channels;
 
   int ret = av_frame_get_buffer(frame, 0);
   if (ret < 0) {
@@ -289,9 +290,9 @@ bool FFmpegAudioEncoder::createSrcFrame() {
     return false;
   }
   srcFrame->nb_samples = DEFAULT_OUTPUT_SAMPLE_COUNT;
-  srcFrame->channel_layout = av_get_default_channel_layout(audioEncoderConfig.channels);
+  av_channel_layout_default(&srcFrame->ch_layout, audioEncoderConfig.channels);
   srcFrame->sample_rate = audioEncoderConfig.sampleRate;
-  srcFrame->channels = audioEncoderConfig.channels;
+  srcFrame->ch_layout.nb_channels = audioEncoderConfig.channels;
   srcFrame->format = AUDIO_OUT_FORMAT;
   int ret = av_frame_get_buffer(srcFrame, 0);
   if (ret < 0) {
@@ -308,7 +309,7 @@ std::shared_ptr<MediaFormat> FFmpegAudioEncoder::getMediaFormat() {
   trackFormat->setInteger(KEY_AUDIO_FORMAT, codecContext->sample_fmt);
   trackFormat->setInteger(KEY_AUDIO_BITRATE, codecContext->bit_rate);
   trackFormat->setInteger(KEY_AUDIO_SAMPLE_RATE, codecContext->sample_rate);
-  trackFormat->setInteger(KEY_AUDIO_CHANNELS, codecContext->channels);
+  trackFormat->setInteger(KEY_AUDIO_CHANNELS, codecContext->ch_layout.nb_channels);
   trackFormat->setInteger(KEY_AUDIO_FRAME_SIZE, codecContext->frame_size);
   trackFormat->setInteger(KEY_TIME_BASE_NUM, codecContext->time_base.num);
   trackFormat->setInteger(KEY_TIME_BASE_DEN, codecContext->time_base.den);

@@ -22,6 +22,7 @@
 extern "C" {
 #endif
 
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
@@ -65,7 +66,7 @@ class FFmpegVideoEncoder : public FFVideoEncoder {
   VideoExportConfig videoEncoderConfig;
   AVCodecID codecId = AVCodecID::AV_CODEC_ID_H264;
   AVCodecContext* codecContext = nullptr;
-  AVCodec* avCodec = nullptr;
+  const AVCodec* avCodec = nullptr;
   AVPacket* packet = nullptr;
   std::vector<std::string> msgs;
 

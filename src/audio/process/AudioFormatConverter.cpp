@@ -56,21 +56,50 @@ SampleData AudioFormatConverter::convert(AVFrame* frame) {
     pSwrContext = nullptr;
   }
   if (!pSwrContext) {
+    AVChannelLayout out_ch_layout={}, in_ch_layout={};
+    av_channel_layout_from_mask(&out_ch_layout, pcmOutputConfig->channelLayout);
+    av_channel_layout_from_mask(&in_ch_layout, frame->ch_layout.u.mask);
+
     preFramePCMOutputConfig->sampleRate = frame->sample_rate;
     preFramePCMOutputConfig->format = frame->format;
-    preFramePCMOutputConfig->channels = frame->channels;
-    preFramePCMOutputConfig->channelLayout = frame->channel_layout;
-    pSwrContext = swr_alloc_set_opts(nullptr, pcmOutputConfig->channelLayout,
-                                     static_cast<AVSampleFormat>(pcmOutputConfig->format),
-                                     pcmOutputConfig->sampleRate, frame->channel_layout,
-                                     static_cast<AVSampleFormat>(frame->format), frame->sample_rate,
-                                     0, nullptr);
+    preFramePCMOutputConfig->channels = frame->ch_layout.nb_channels;
+    preFramePCMOutputConfig->channelLayout = frame->ch_layout.u.mask;
+
+    int ret = swr_alloc_set_opts2(&pSwrContext,
+                  &out_ch_layout, static_cast<AVSampleFormat>(pcmOutputConfig->format),
+                  pcmOutputConfig->sampleRate, &in_ch_layout,
+                  static_cast<AVSampleFormat>(frame->format),
+                  frame->sample_rate,
+                  0, nullptr);
+    if (ret < 0) {
+      av_channel_layout_uninit(&out_ch_layout);
+      av_channel_layout_uninit(&in_ch_layout);
+      if (pConvertBuff) {
+        av_freep(&pConvertBuff);
+        pConvertBuff = nullptr;
+      }
+      if(pSwrContext) {
+        swr_free(&pSwrContext);
+        pSwrContext = nullptr;
+      }
+      return {};
+    }
     swr_init(pSwrContext);
+    av_channel_layout_uninit(&out_ch_layout);
+    av_channel_layout_uninit(&in_ch_layout);
   }
 
   auto newNbSamples = swr_convert(pSwrContext, &pConvertBuff, outputSamples,
                                   (const uint8_t**)frame->data, frame->nb_samples);
   if (newNbSamples <= 0) {
+    if (pConvertBuff) {
+      av_freep(&pConvertBuff);
+      pConvertBuff = nullptr;
+    }
+    if(pSwrContext) {
+      swr_free(&pSwrContext);
+      pSwrContext = nullptr;
+    }
     return {};
   }
   return {pConvertBuff, SampleCountToLength(newNbSamples, pcmOutputConfig.get())};

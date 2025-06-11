@@ -357,28 +357,42 @@ PTSDetail* FFmpegVideoDemuxer::getPTSDetail() {
   std::vector<int> keyframeIndexVector{};
   AVStream* avStream = formatContext->streams[videoStreamIndex];
   std::list<int64_t> ptsList{};
-  for (int i = avStream->nb_index_entries - 1; i >= 0; --i) {
-    auto entry = avStream->index_entries[i];
-    auto pts = av_rescale_q_rnd(entry.pts, avStream->time_base, AVRational{1, AV_TIME_BASE},
-                                AVRounding::AV_ROUND_ZERO);
+  struct FrameInfo {
+    int64_t pts;
+    bool is_keyframe;
+  };
+  std::vector<FrameInfo> frameInfos;
+  AVPacket* pkt = av_packet_alloc();
+  if (!pkt) return nullptr;
+  av_seek_frame(formatContext, videoStreamIndex, 0, AVSEEK_FLAG_BACKWARD);
+  while (av_read_frame(formatContext, pkt) >= 0) {
+    if (pkt->stream_index == videoStreamIndex && pkt->pts != AV_NOPTS_VALUE) {
+      int64_t pts = av_rescale_q(pkt->pts, avStream->time_base, {1, AV_TIME_BASE});
+      frameInfos.push_back({pts, (pkt->flags & AV_PKT_FLAG_KEY) != 0});
+    }
+    av_packet_unref(pkt);
+  }
+  av_packet_free(&pkt);
+  const int nb_entries = static_cast<int>(frameInfos.size());
+  for (int i = nb_entries - 1; i >= 0; --i) {
+    auto& entry = frameInfos[i];
     int index = 0;
     auto it = ptsList.begin();
     for (; it != ptsList.end(); ++it) {
-      if (*it < pts) {
+      if (*it < entry.pts) {
         ++index;
         continue;
       }
       break;
     }
-    ptsList.insert(it, pts);
-    if (entry.flags & AVINDEX_KEYFRAME) {
-      index = avStream->nb_index_entries - (static_cast<int>(ptsList.size()) - index);
-      keyframeIndexVector.insert(keyframeIndexVector.begin(), index);
+    ptsList.insert(it, entry.pts);
+    if (entry.is_keyframe) {
+      int mapped_index = nb_entries - (static_cast<int>(ptsList.size()) - index);
+      keyframeIndexVector.insert(keyframeIndexVector.begin(), mapped_index);
     }
   }
-  auto duration = 1000000 * avStream->duration * avStream->time_base.num / avStream->time_base.den;
-  auto ptsVector = std::vector<int64_t>{std::make_move_iterator(ptsList.begin()),
-                                        std::make_move_iterator(ptsList.end())};
+  int64_t duration = 1000000LL * avStream->duration * avStream->time_base.num / avStream->time_base.den;
+  auto ptsVector = std::vector<int64_t>{std::make_move_iterator(ptsList.begin()), std::make_move_iterator(ptsList.end())};
   ptsDetail = new PTSDetail(duration, std::move(ptsVector), std::move(keyframeIndexVector));
   return ptsDetail;
 }

@@ -68,7 +68,7 @@ class FFmpegMuxer : public FFMediaMuxer {
   void updateExtraData(AVStream* stream, const std::vector<std::shared_ptr<ByteData>>& header);
 
   std::string movieOutputPath;
-  AVOutputFormat* avOutputFormat = nullptr;
+  const AVOutputFormat* avOutputFormat = nullptr;
   AVFormatContext* avFormatContext = nullptr;
   AVDictionary* avDict = nullptr;
   std::shared_ptr<std::mutex> locker = std::make_shared<std::mutex>();

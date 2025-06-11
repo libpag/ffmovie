@@ -17,6 +17,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "FFmpegMuxer.h"
+#include <libavcodec/avcodec.h>
 #include "utils/FFmpegUtils.h"
 #include "utils/LockGuard.h"
 #include "utils/StringUtils.h"
@@ -181,7 +182,7 @@ int FFmpegMuxer::addTrack(std::shared_ptr<MediaFormat> mediaFormat) {
     stream->codecpar->format = mediaFormat->getInteger(KEY_AUDIO_FORMAT);
     stream->codecpar->bit_rate = mediaFormat->getInteger(KEY_AUDIO_BITRATE);
     stream->codecpar->sample_rate = mediaFormat->getInteger(KEY_AUDIO_SAMPLE_RATE);
-    stream->codecpar->channels = mediaFormat->getInteger(KEY_AUDIO_CHANNELS);
+    stream->codecpar->ch_layout.nb_channels = mediaFormat->getInteger(KEY_AUDIO_CHANNELS);
     stream->codecpar->frame_size = mediaFormat->getInteger(KEY_AUDIO_FRAME_SIZE);
 
     std::vector<std::shared_ptr<ByteData>> headersByteData{};
@@ -198,7 +199,8 @@ int FFmpegMuxer::addTrack(std::shared_ptr<MediaFormat> mediaFormat) {
   streamMap[stream->id] = stream;
   FF_DISABLE_DEPRECATION_WARNINGS
   if (avFormatContext->oformat->flags & AVFMT_GLOBALHEADER) {
-    stream->codec->flags = stream->codec->flags | AV_CODEC_FLAG_GLOBAL_HEADER;
+    auto avCodecContext = static_cast<AVCodecContext*>(mediaFormat->getCodecContext());
+    avCodecContext->flags = avCodecContext->flags | AV_CODEC_FLAG_GLOBAL_HEADER;
   }
   FF_DISABLE_DEPRECATION_WARNINGS
   return stream->id;

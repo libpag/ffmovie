@@ -5,6 +5,6 @@
 [submodule "third_party/libyuv"]
 	path = third_party/libyuv
 	url = https://chromium.googlesource.com/libyuv/libyuv
-[submodule "third_party/vendor_tool"]
-	path = third_party/vendor_tool
+[submodule "third_party/vendor_tools"]
+	path = third_party/vendor_tools
 	url = https://github.com/libpag/vendor_tools.git

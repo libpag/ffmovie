@@ -80,7 +80,7 @@ After building the ffmpeg libraries, you have two ways to build ffmovie:
 
 ### 1. Build with CMake
 
-After ffmpeg libraries are built, you can open this project by CLion to build, or simply build it with the cmake command-line tool.
+You can open this project by CLion to build, or simply build it with the cmake command-line tool.
 
 ### 2. Build with the `build_ffmovie` Script
 

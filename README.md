@@ -1,6 +1,6 @@
 # ffmovie
 
-**ffmovie** is a cross-platform video decoder library based on ffmpeg, designed to provide efficient decoding capabilities for use in [libpag](https://github.com/libpag/libpag) and related projects.
+**ffmovie** is a cross-platform video decoder library based on ffmpeg, designed to provide efficient decoding and encoding capabilities for use in [libpag](https://github.com/libpag/libpag) and related projects.
 
 ## Dependency Management
 

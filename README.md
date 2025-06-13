@@ -112,7 +112,7 @@ The script will sync dependencies and invoke the appropriate build process for t
 
 ## License
 
-This project is licensed under the terms of the [Apache 2.0 License](LICENSE).
+This project is licensed under the terms of the [GNU 2.1 License](LICENSE.txt).
 
 ---
 **For more details on build options or troubleshooting, refer to the respective scripts in the `scripts/` directory.**
